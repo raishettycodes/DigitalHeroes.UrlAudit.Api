@@ -1,0 +1,21 @@
+# Build folders
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Logs
+Logs/
+
+# Test Results
+TestResults/
+
+# Publish
+publish/
+
+# OS files
+Thumbs.db
+Desktop.ini

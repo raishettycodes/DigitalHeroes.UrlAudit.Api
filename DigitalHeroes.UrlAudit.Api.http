@@ -1,0 +1,6 @@
+@DigitalHeroes.UrlAudit.Api_HostAddress = http://localhost:5223
+
+GET {{DigitalHeroes.UrlAudit.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
