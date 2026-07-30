@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "oFmBKg3hnfmvu5Ps6V/yNaNdGFw2nwfLC/DRKmI/8J+r7bgv7PFp1oMWt4tD5QlyTrQvHLNybYP+bX7zbRy4RQ==",
+  "dgSpecHash": "9DiWxuvXDiKGuRQFaNK3+B7OG9uL1C+qkLEovMyK1QEFqIgZUcCUVwsdI+mM5imCpzurOSGxHTRiFATFEFYz3g==",
   "success": true,
   "projectFilePath": "C:\\Users\\santh\\source\\repos\\DigitalHeroes.UrlAudit\\DigitalHeroes.UrlAudit.Tests\\DigitalHeroes.UrlAudit.Tests.csproj",
   "expectedPackageFiles": [
@@ -29,6 +29,7 @@
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.openapi\\1.2.3\\microsoft.openapi.1.2.3.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.testplatform.objectmodel\\17.6.0\\microsoft.testplatform.objectmodel.17.6.0.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.testplatform.testhost\\17.6.0\\microsoft.testplatform.testhost.17.6.0.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\microsoft.visualstudio.azure.containers.tools.targets\\1.19.5\\microsoft.visualstudio.azure.containers.tools.targets.1.19.5.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.win32.primitives\\4.3.0\\microsoft.win32.primitives.4.3.0.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\moq\\4.20.72\\moq.4.20.72.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\netstandard.library\\1.6.1\\netstandard.library.1.6.1.nupkg.sha512",
