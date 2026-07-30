@@ -80,6 +80,7 @@ var app = builder.Build();
     
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.MapGet("/", () => "DigitalHeroes URL Audit API is running successfully.");
 
 
     app.UseRateLimiter();
