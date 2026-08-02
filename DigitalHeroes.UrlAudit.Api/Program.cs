@@ -21,6 +21,19 @@ try
 
     // Add services to the container.
     builder.Host.UseSerilog();
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowAngular", policy =>
+        {
+            policy
+                .WithOrigins(
+                    "http://localhost:4200",
+                    "https://localhost:4200"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+    });
     builder.Services.AddControllers();
     builder.Services.Configure<AuditSettings>(
     builder.Configuration.GetSection("AuditSettings"));
@@ -85,6 +98,7 @@ var app = builder.Build();
 
     app.UseRateLimiter();
     app.UseHttpsRedirection();
+    app.UseCors("AllowAngular");
     app.UseAuthorization();
     app.MapControllers();
     app.MapHealthChecks("/health");
