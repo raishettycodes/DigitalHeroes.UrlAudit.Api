@@ -4,6 +4,8 @@ using DigitalHeroes.UrlAudit.Api.Middleware;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using DigitalHeroes.UrlAudit.Api.Configuration;
+using Microsoft.EntityFrameworkCore;
+using DigitalHeroes.UrlAudit.Api.Data;
 
 
 Log.Logger = new LoggerConfiguration()
@@ -35,6 +37,9 @@ try
         });
     });
     builder.Services.AddControllers();
+    builder.Services.AddDbContext<UrlAuditDbContext>(options =>
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
     builder.Services.Configure<AuditSettings>(
     builder.Configuration.GetSection("AuditSettings"));
     builder.Services.AddHealthChecks();

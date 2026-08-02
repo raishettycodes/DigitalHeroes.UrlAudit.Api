@@ -4,6 +4,9 @@ using DigitalHeroes.UrlAudit.Api.DTOs;
 using System.Diagnostics;
 using Microsoft.Extensions.Options;
 using DigitalHeroes.UrlAudit.Api.Configuration;
+using DigitalHeroes.UrlAudit.Api.Data;
+using DigitalHeroes.UrlAudit.Api.Models;
+
 
 namespace DigitalHeroes.UrlAudit.Api.Services
 {
@@ -13,14 +16,18 @@ namespace DigitalHeroes.UrlAudit.Api.Services
         private readonly IMemoryCache _cache;
         private readonly ILogger<AuditService> _logger;
         private readonly AuditSettings _settings;
-
-        public AuditService(HttpClient httpClient,IMemoryCache cache,ILogger<AuditService> logger, IOptions<AuditSettings> options)
+        private readonly UrlAuditDbContext _context;
+        public AuditService(HttpClient httpClient,IMemoryCache cache,ILogger<AuditService> logger,IOptions<AuditSettings> options,
+               UrlAuditDbContext context)
         {
             _httpClient = httpClient;
             _cache = cache;
             _logger = logger;
             _settings = options.Value;
-            _httpClient.Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds);
+            _context = context;
+
+            _httpClient.Timeout =
+                TimeSpan.FromSeconds(_settings.TimeoutSeconds);
         }
 
         public async Task<AuditResponseDto> AuditUrlAsync(string url)
@@ -49,8 +56,25 @@ namespace DigitalHeroes.UrlAudit.Api.Services
                     StatusCode = (int)response.StatusCode,
                     ResponseTimeMs = stopwatch.ElapsedMilliseconds,
                     IsReachable = response.IsSuccessStatusCode,
-                    Message = "URL audited successfully"
+                    Message = response.IsSuccessStatusCode
+    ? "URL audited successfully"
+    : $"Website returned HTTP {(int)response.StatusCode}"
                 };
+            
+                // Save audit into SQL Server
+                var auditHistory = new AuditHistory
+                {
+                    Url = result.Url,
+                    StatusCode = result.StatusCode,
+                    ResponseTimeMs = (int)result.ResponseTimeMs,
+                    IsReachable = result.IsReachable,
+                    Message = result.Message,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.AuditHistories.Add(auditHistory);
+
+                await _context.SaveChangesAsync();
 
                 // Store in cache for 5 minutes
                 _cache.Set(
