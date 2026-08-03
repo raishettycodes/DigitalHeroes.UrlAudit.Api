@@ -11,4 +11,5 @@ public class UrlAuditDbContext : DbContext
     }
 
     public DbSet<AuditHistory> AuditHistories => Set<AuditHistory>();
+    public DbSet<User> Users { get; set; }
 }

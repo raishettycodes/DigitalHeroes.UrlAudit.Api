@@ -9,6 +9,7 @@
       "DigitalHeroes.UrlAudit.Api/1.0.0": {
         "dependencies": {
           "Microsoft.EntityFrameworkCore.Design": "8.0.20",
+          "Microsoft.EntityFrameworkCore.InMemory": "8.0.20",
           "Microsoft.EntityFrameworkCore.SqlServer": "8.0.20",
           "Microsoft.EntityFrameworkCore.Tools": "8.0.20",
           "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "1.19.5",
@@ -389,6 +390,17 @@
         },
         "runtime": {
           "lib/net8.0/Microsoft.EntityFrameworkCore.Design.dll": {
+            "assemblyVersion": "8.0.20.0",
+            "fileVersion": "8.0.2025.41910"
+          }
+        }
+      },
+      "Microsoft.EntityFrameworkCore.InMemory/8.0.20": {
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "8.0.20"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.EntityFrameworkCore.InMemory.dll": {
             "assemblyVersion": "8.0.20.0",
             "fileVersion": "8.0.2025.41910"
           }
@@ -1300,6 +1312,13 @@
       "sha512": "sha512-U5J4BM8Z/EWpLRdK1k8a4Ps/4aMW89agdlvAP+K9xV5pY5yVeldezMEtMP+iKq1fBaf/3SIDLMbo/tVnpgxtnA==",
       "path": "microsoft.entityframeworkcore.design/8.0.20",
       "hashPath": "microsoft.entityframeworkcore.design.8.0.20.nupkg.sha512"
+    },
+    "Microsoft.EntityFrameworkCore.InMemory/8.0.20": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-u8LzO3wZLX7F23IQkJHdq56OK2Bg+EnSD6PsotnhULLND41pUDZ9IzkitimoDraCJHT4JghpzWmm8meTh2LhVw==",
+      "path": "microsoft.entityframeworkcore.inmemory/8.0.20",
+      "hashPath": "microsoft.entityframeworkcore.inmemory.8.0.20.nupkg.sha512"
     },
     "Microsoft.EntityFrameworkCore.Relational/8.0.20": {
       "type": "package",

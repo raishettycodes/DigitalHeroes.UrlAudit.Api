@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "B9doMNIYGs1QGW5Rnrog6xJ/E7z3WbVRPy6IITt+Jn4xl3QS7hb0sC138oJGkJx4Vclg3mSFHLxtEoSIkPRvMw==",
+  "dgSpecHash": "f3MsvRGBXaf+5AzLD6rzfpS3ficYo3il05U6T2xtlwgaWHArHYnmvNbpdxETqXUmQwTGpz8sh0BYwM8OzfQ7KA==",
   "success": true,
   "projectFilePath": "C:\\Users\\santh\\source\\repos\\DigitalHeroes.UrlAudit\\DigitalHeroes.UrlAudit.Tests\\DigitalHeroes.UrlAudit.Tests.csproj",
   "expectedPackageFiles": [
@@ -16,6 +16,7 @@
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.entityframeworkcore\\8.0.20\\microsoft.entityframeworkcore.8.0.20.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.entityframeworkcore.abstractions\\8.0.20\\microsoft.entityframeworkcore.abstractions.8.0.20.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.entityframeworkcore.analyzers\\8.0.20\\microsoft.entityframeworkcore.analyzers.8.0.20.nupkg.sha512",
+    "C:\\Users\\santh\\.nuget\\packages\\microsoft.entityframeworkcore.inmemory\\8.0.20\\microsoft.entityframeworkcore.inmemory.8.0.20.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.entityframeworkcore.relational\\8.0.20\\microsoft.entityframeworkcore.relational.8.0.20.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.entityframeworkcore.sqlserver\\8.0.20\\microsoft.entityframeworkcore.sqlserver.8.0.20.nupkg.sha512",
     "C:\\Users\\santh\\.nuget\\packages\\microsoft.extensions.apidescription.server\\6.0.5\\microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512",

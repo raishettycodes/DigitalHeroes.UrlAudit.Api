@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using DigitalHeroes.UrlAudit.Api.Configuration;
 using DigitalHeroes.UrlAudit.Api.Data;
 using DigitalHeroes.UrlAudit.Api.Models;
+using Microsoft.EntityFrameworkCore;
+using DigitalHeroes.UrlAudit.Api.Data;
 
 
 namespace DigitalHeroes.UrlAudit.Api.Services

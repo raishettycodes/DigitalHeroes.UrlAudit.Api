@@ -80,5 +80,17 @@
         <member name="M:DigitalHeroes.UrlAudit.Api.Migrations.InitialCreate.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
         </member>
+        <member name="T:DigitalHeroes.UrlAudit.Api.Migrations.AddUsersTable">
+            <inheritdoc />
+        </member>
+        <member name="M:DigitalHeroes.UrlAudit.Api.Migrations.AddUsersTable.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:DigitalHeroes.UrlAudit.Api.Migrations.AddUsersTable.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:DigitalHeroes.UrlAudit.Api.Migrations.AddUsersTable.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
     </members>
 </doc>
