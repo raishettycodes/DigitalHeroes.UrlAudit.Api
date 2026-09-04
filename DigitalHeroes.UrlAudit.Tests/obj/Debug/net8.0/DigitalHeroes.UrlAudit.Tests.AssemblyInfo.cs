@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DigitalHeroes.UrlAudit.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6ab3e9e33255943585b6d028329f3cd97de81161")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+42d0e82d35e440daf3c4344fc36ca406bdec914e")]
 [assembly: System.Reflection.AssemblyProductAttribute("DigitalHeroes.UrlAudit.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DigitalHeroes.UrlAudit.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

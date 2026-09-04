@@ -1,38 +1,52 @@
-﻿namespace DigitalHeroes.UrlAudit.Api.DTOs
+﻿namespace DigitalHeroes.UrlAudit.Api.DTOs;
+
+public class AuditResponseDto
 {
-    /// <summary>
-    /// Represents the audit result.
-    /// </summary>
-    public class AuditResponseDto
-    {
-        /// <summary>
-        /// Indicates whether the audit succeeded.
-        /// </summary>
-        public bool Success { get; set; }
+    public bool Success { get; set; }
 
-        /// <summary>
-        /// Audited URL.
-        /// </summary>
-        public string? Url { get; set; }
+    public string? Url { get; set; }
 
-        /// <summary>
-        /// HTTP status code returned.
-        /// </summary>
-        public int StatusCode { get; set; }
+    public int StatusCode { get; set; }
 
-        /// <summary>
-        /// Response time in milliseconds.
-        /// </summary>
-        public long ResponseTimeMs { get; set; }
+    public long ResponseTimeMs { get; set; }
 
-        /// <summary>
-        /// Indicates whether the URL is reachable.
-        /// </summary>
-        public bool IsReachable { get; set; }
+    public bool IsReachable { get; set; }
 
-        /// <summary>
-        /// Additional information.
-        /// </summary>
-        public string? Message { get; set; }
-    }
+    public string? Message { get; set; }
+
+    // Technical details
+
+    public string? HttpVersion { get; set; }
+
+    public string? Server { get; set; }
+
+    public string? ContentType { get; set; }
+
+    public long? ContentLength { get; set; }
+
+    public bool? IsRedirect { get; set; }
+
+    public string? RedirectLocation { get; set; }
+
+    public bool? IsSslValid { get; set; }
+
+    // SEO details
+
+    public string? Title { get; set; }
+
+    public string? MetaDescription { get; set; }
+
+    public int? H1Count { get; set; }
+
+    public int? H2Count { get; set; }
+
+    public int? Images { get; set; }
+
+    public int? ImagesWithoutAlt { get; set; }
+
+    public int? SeoScore { get; set; }
+
+    public int? InternalLinks { get; set; }
+
+    public int? ExternalLinks { get; set; }
 }

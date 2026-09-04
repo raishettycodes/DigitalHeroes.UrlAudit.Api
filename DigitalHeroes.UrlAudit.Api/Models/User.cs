@@ -17,8 +17,15 @@ namespace DigitalHeroes.UrlAudit.Api.Models
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 
+        public string Role { get; set; } = "User";
+
+        public bool EmailVerified { get; set; } = false;
+
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
+
+
+        public ICollection<Website> Websites { get; set; }  = new List<Website>();
     }
 }
