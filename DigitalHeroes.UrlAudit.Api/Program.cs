@@ -145,13 +145,6 @@ try
 
         options.Events = new JwtBearerEvents
         {
-            OnMessageReceived = context =>
-            {
-                Console.WriteLine("===== TOKEN RECEIVED =====");
-                Console.WriteLine(context.Request.Headers["Authorization"]);
-                return Task.CompletedTask;
-            },
-
             OnAuthenticationFailed = context =>
             {
                 Console.WriteLine("===== AUTH FAILED =====");

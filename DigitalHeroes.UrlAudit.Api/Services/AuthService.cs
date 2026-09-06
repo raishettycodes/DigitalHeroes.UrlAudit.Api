@@ -44,23 +44,12 @@ namespace DigitalHeroes.UrlAudit.Api.Services
 
             if (user == null)
                 return null;
-            Console.WriteLine("Stored Hash:");
-            Console.WriteLine(user.PasswordHash);
 
-            Console.WriteLine("Entered Password:");
-            Console.WriteLine(request.Password);
 
             var result = _passwordHasher.VerifyHashedPassword(
                 user,
                 user.PasswordHash,
                 request.Password);
-
-            Console.WriteLine("Verify Result: " + result);
-
-            //var result = _passwordHasher.VerifyHashedPassword(
-            //    user,
-            //    user.PasswordHash,
-            //    request.Password);
 
             if (result == PasswordVerificationResult.Failed)
                 return null;
