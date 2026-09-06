@@ -1,14 +1,18 @@
 ﻿namespace DigitalHeroes.UrlAudit.Api.DTOs;
 
-public class AuditResponseDto
+public class AuditHistoryDto
 {
-    public bool Success { get; set; }
+    public int Id { get; set; }
 
-    public string? Url { get; set; }
+    public int WebsiteId { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public string Url { get; set; } = string.Empty;
 
     public int StatusCode { get; set; }
 
-    public long ResponseTimeMs { get; set; }
+    public int ResponseTimeMs { get; set; }
 
     public bool IsReachable { get; set; }
 
@@ -45,8 +49,4 @@ public class AuditResponseDto
     public int? ImagesWithoutAlt { get; set; }
 
     public int? SeoScore { get; set; }
-
-    public int? InternalLinks { get; set; }
-
-    public int? ExternalLinks { get; set; }
 }
