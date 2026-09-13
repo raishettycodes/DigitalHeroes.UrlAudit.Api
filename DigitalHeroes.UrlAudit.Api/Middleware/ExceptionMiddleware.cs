@@ -29,28 +29,49 @@ namespace DigitalHeroes.UrlAudit.Api.Middleware
             }
         }
 
+        //private async Task HandleExceptionAsync(
+        //    HttpContext context,
+        //    Exception exception)
+        //{
+        //    _logger.LogError(
+        //        exception,
+        //        "Unhandled Exception");
+
+        //    context.Response.ContentType = "application/json";
+
+        //    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        //    var response = new
+        //    {
+        //        Success = false,
+        //        Message = "An unexpected error occurred.",
+        //        StatusCode = 500
+        //    };
+
+        //    var json = JsonSerializer.Serialize(response);
+
+        //    await context.Response.WriteAsync(json);
+        //}
+
         private async Task HandleExceptionAsync(
-            HttpContext context,
-            Exception exception)
+    HttpContext context,
+    Exception exception)
         {
-            _logger.LogError(
-                exception,
-                "Unhandled Exception");
+            _logger.LogError(exception, "Unhandled Exception");
 
             context.Response.ContentType = "application/json";
-
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 
             var response = new
             {
                 Success = false,
-                Message = "An unexpected error occurred.",
-                StatusCode = 500
+                Message = exception.Message,
+                Exception = exception.GetType().Name,
+                InnerException = exception.InnerException?.Message,
+                StackTrace = exception.StackTrace
             };
 
-            var json = JsonSerializer.Serialize(response);
-
-            await context.Response.WriteAsync(json);
+            await context.Response.WriteAsJsonAsync(response);
         }
     }
 }

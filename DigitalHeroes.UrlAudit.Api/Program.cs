@@ -4,6 +4,14 @@ using DigitalHeroes.UrlAudit.Api.Middleware;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using DigitalHeroes.UrlAudit.Api.Configuration;
+using Microsoft.EntityFrameworkCore;
+using DigitalHeroes.UrlAudit.Api.Data;
+using DigitalHeroes.UrlAudit.Api.Interfaces;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using DigitalHeroes.UrlAudit.Api.Helpers;
+
 
 
 Log.Logger = new LoggerConfiguration()
@@ -28,13 +36,19 @@ try
             policy
                 .WithOrigins(
                     "http://localhost:4200",
-                    "https://localhost:4200"
+                    "https://localhost:4200",
+                    "https://wonderful-sea-0b0123710.6.azurestaticapps.net"
                 )
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         });
     });
     builder.Services.AddControllers();
+    builder.Services.Configure<JwtSettings>(
+    builder.Configuration.GetSection("Jwt"));
+    builder.Services.AddDbContext<UrlAuditDbContext>(options =>
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
     builder.Services.Configure<AuditSettings>(
     builder.Configuration.GetSection("AuditSettings"));
     builder.Services.AddHealthChecks();
@@ -65,18 +79,98 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
     {
-        var xmlFilename =
-            $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        {
+            Title = "DigitalHeroes URL Audit API",
+            Version = "v1"
+        });
 
-        options.IncludeXmlComments(
-            Path.Combine(AppContext.BaseDirectory, xmlFilename));
+        options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Description = "JWT Authorization header using the Bearer scheme. Example: Bearer {token}",
+            Name = "Authorization",
+            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT"
+        });
+
+        options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
     });
 
 
     // Register AuditService
     builder.Services.AddHttpClient<AuditService>();
+    builder.Services.AddScoped<SeoAuditService>();
+    builder.Services.AddScoped<IAuditHistoryService, AuditHistoryService>();
+    builder.Services.AddScoped<IAuthService, AuthService>();
+    builder.Services.AddScoped<IWebsiteService, WebsiteService>();
+    builder.Services.AddScoped<JwtTokenGenerator>();
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var jwt = builder.Configuration.GetSection("Jwt");
 
-var app = builder.Build();
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+
+            ValidIssuer = jwt["Issuer"],
+            ValidAudience = jwt["Audience"],
+
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwt["Key"]!)),
+
+            ClockSkew = TimeSpan.Zero
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine("===== AUTH FAILED =====");
+                Console.WriteLine(context.Exception.Message);
+                return Task.CompletedTask;
+            },
+
+            OnTokenValidated = context =>
+            {
+                Console.WriteLine("===== TOKEN VALID =====");
+                return Task.CompletedTask;
+            },
+
+            OnChallenge = context =>
+            {
+                Console.WriteLine("===== CHALLENGE =====");
+                Console.WriteLine(context.Error);
+                Console.WriteLine(context.ErrorDescription);
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+    builder.Services.AddAuthorization();
+
+    var app = builder.Build();
 
    
 
@@ -99,6 +193,7 @@ var app = builder.Build();
     app.UseRateLimiter();
     app.UseHttpsRedirection();
     app.UseCors("AllowAngular");
+    app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
     app.MapHealthChecks("/health");
