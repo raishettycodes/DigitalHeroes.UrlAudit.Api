@@ -43,6 +43,9 @@ public class UrlAuditDbContext : DbContext
     public DbSet<Subscription> Subscriptions =>
         Set<Subscription>();
 
+    public DbSet<Payment> Payments =>
+        Set<Payment>();
+
 
     // =========================================================
     // NOTIFICATIONS
@@ -109,6 +112,9 @@ public class UrlAuditDbContext : DbContext
 
         modelBuilder.Entity<Subscription>()
             .Property(s => s.MonthlyPrice)
+            .HasPrecision(18, 2);
+        modelBuilder.Entity<Payment>()
+            .Property(p => p.Amount)
             .HasPrecision(18, 2);
 
 

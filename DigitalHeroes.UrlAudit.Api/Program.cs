@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using DigitalHeroes.UrlAudit.Api.Helpers;
+using DigitalHeroes.UrlAudit.Api.Models;
 
 
 
@@ -26,6 +27,10 @@ try
 
 
     var builder = WebApplication.CreateBuilder(args);
+
+    builder.Services.Configure<RazorpayOptions>(
+    builder.Configuration.GetSection("Razorpay"));
+    builder.Services.AddScoped<RazorpayService>();
 
     // Add services to the container.
     builder.Host.UseSerilog();
@@ -177,9 +182,11 @@ try
 
     builder.Services.AddAuthorization();
 
+    Console.WriteLine("===== BEFORE BUILD =====");
     var app = builder.Build();
+    Console.WriteLine("===== AFTER BUILD =====");
 
-   
+
 
     // Request ID Middleware (FIRST)
     app.UseMiddleware<RequestIdMiddleware>();
@@ -204,6 +211,7 @@ try
     app.UseAuthorization();
     app.MapControllers();
     app.MapHealthChecks("/health");
+    Console.WriteLine("===== BEFORE RUN =====");
     app.Run();
 }
 catch (Exception ex)
