@@ -48,7 +48,14 @@ try
     builder.Configuration.GetSection("Jwt"));
     builder.Services.AddDbContext<UrlAuditDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+    builder.Configuration.GetConnectionString("DefaultConnection"),
+    sqlServerOptions =>
+    {
+        sqlServerOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
+            errorNumbersToAdd: null);
+    }));
     builder.Services.Configure<AuditSettings>(
     builder.Configuration.GetSection("AuditSettings"));
     builder.Services.AddHealthChecks();
