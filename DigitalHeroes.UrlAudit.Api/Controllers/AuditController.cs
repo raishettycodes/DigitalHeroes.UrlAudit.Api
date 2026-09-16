@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using DigitalHeroes.UrlAudit.Api.Interfaces;
+using DigitalHeroes.UrlAudit.Api.Configuration;
 
 namespace DigitalHeroes.UrlAudit.Api.Controllers
 {
@@ -205,6 +206,32 @@ public async Task<IActionResult> Audit(
                     success = false,
                     message = "Plan is required."
                 });
+            }
+            var plan = PlanDefinitions.Plans.Values
+    .FirstOrDefault(p =>
+        string.Equals(
+            p.Name,
+            request.Plan.Trim(),
+            StringComparison.OrdinalIgnoreCase));
+
+            if (plan == null)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Invalid subscription plan."
+                });
+            }
+
+            if (plan.MonthlyPrice > 0)
+            {
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new
+                    {
+                        success = false,
+                        message = "Paid plans must be activated through Razorpay payment."
+                    });
             }
             var result =
                 await _auditService.UpgradeSubscriptionAsync(

@@ -200,6 +200,16 @@ public class SubscriptionController : ControllerBase
                 message = "Invalid subscription plan."
             });
         }
+        if (plan.MonthlyPrice > 0)
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new
+                {
+                    success = false,
+                    message = "Paid plans must be activated through Razorpay payment."
+                });
+        }
 
         var subscription = await _context.Subscriptions
             .FirstOrDefaultAsync(s => s.UserId == userId);
