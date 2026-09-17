@@ -432,12 +432,25 @@ public class PaymentController : ControllerBase
                   (sqlException.Number == 2601 ||
                    sqlException.Number == 2627))
         {
-            var duplicateWebhookEvent =
+            _context.Entry(webhookEvent).State = EntityState.Detached;
+
+            webhookEvent =
                 await _context.PaymentWebhookEvents
                     .FirstOrDefaultAsync(e =>
                         e.EventId == eventId);
 
-            if (duplicateWebhookEvent?.Processed == true)
+            if (webhookEvent == null)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        success = false,
+                        message = "Unable to resolve duplicate webhook event."
+                    });
+            }
+
+            if (webhookEvent.Processed)
             {
                 return Ok(new
                 {
@@ -445,10 +458,6 @@ public class PaymentController : ControllerBase
                     message = "Webhook already processed."
                 });
             }
-
-            // An earlier attempt received this event but did not
-            // complete processing. Continue processing this retry.
-            webhookEvent = duplicateWebhookEvent!;
         }
 
         // 5. Only process captured payments.
