@@ -386,7 +386,6 @@ public class PaymentController : ControllerBase
         }
 
         // 2. Check idempotency.
-        // 2. Check idempotency.
         var existingEvent =
             await _context.PaymentWebhookEvents
                 .FirstOrDefaultAsync(e =>
@@ -432,7 +431,8 @@ public class PaymentController : ControllerBase
                   (sqlException.Number == 2601 ||
                    sqlException.Number == 2627))
         {
-            _context.Entry(webhookEvent).State = EntityState.Detached;
+            _context.Entry(webhookEvent).State =
+                EntityState.Detached;
 
             webhookEvent =
                 await _context.PaymentWebhookEvents
@@ -446,7 +446,8 @@ public class PaymentController : ControllerBase
                     new
                     {
                         success = false,
-                        message = "Unable to resolve duplicate webhook event."
+                        message =
+                            "Unable to resolve duplicate webhook event."
                     });
             }
 
@@ -475,9 +476,15 @@ public class PaymentController : ControllerBase
         }
 
         // 6. Extract Razorpay payment details.
-        if (!root.TryGetProperty("payload", out var payloadElement) ||
-            !payloadElement.TryGetProperty("payment", out var paymentElement) ||
-            !paymentElement.TryGetProperty("entity", out var entity))
+        if (!root.TryGetProperty(
+                "payload",
+                out var payloadElement) ||
+            !payloadElement.TryGetProperty(
+                "payment",
+                out var paymentElement) ||
+            !paymentElement.TryGetProperty(
+                "entity",
+                out var entity))
         {
             return BadRequest(new
             {
@@ -487,14 +494,18 @@ public class PaymentController : ControllerBase
         }
 
         var razorpayPaymentId =
-            entity.TryGetProperty("id", out var paymentIdProperty)
-                ? paymentIdProperty.GetString()
-                : null;
+            entity.TryGetProperty(
+                "id",
+                out var paymentIdProperty)
+                    ? paymentIdProperty.GetString()
+                    : null;
 
         var razorpayOrderId =
-            entity.TryGetProperty("order_id", out var orderIdProperty)
-                ? orderIdProperty.GetString()
-                : null;
+            entity.TryGetProperty(
+                "order_id",
+                out var orderIdProperty)
+                    ? orderIdProperty.GetString()
+                    : null;
 
         if (string.IsNullOrWhiteSpace(razorpayPaymentId) ||
             string.IsNullOrWhiteSpace(razorpayOrderId))
@@ -520,36 +531,16 @@ public class PaymentController : ControllerBase
                 message = "Payment order not found."
             });
         }
-        if (payment == null)
-        {
-            return NotFound(new
-            {
-                success = false,
-                message = "Payment order not found."
-            });
-        }
 
         webhookEvent.UserId = payment.UserId;
-        webhookEvent.RazorpayPaymentId = razorpayPaymentId;
-        webhookEvent.RazorpayOrderId = razorpayOrderId;
+        webhookEvent.RazorpayPaymentId =
+            razorpayPaymentId;
+        webhookEvent.RazorpayOrderId =
+            razorpayOrderId;
 
         await _context.SaveChangesAsync();
 
-        // 8. Idempotency at payment level too.
-        if (payment.Status == "Paid")
-        {
-            webhookEvent.Processed = true;
-
-            await _context.SaveChangesAsync();
-
-            return Ok(new
-            {
-                success = true,
-                message = "Payment already processed."
-            });
-        }
-
-        // 9. Verify the payment with Razorpay.
+        // 8. Verify the payment with Razorpay.
         Razorpay.Api.Payment razorpayPayment;
 
         try
@@ -615,13 +606,14 @@ public class PaymentController : ControllerBase
             });
         }
 
-        // 10. Find the plan.
-        var plan = PlanDefinitions.Plans.Values
-    .FirstOrDefault(p =>
-        string.Equals(
-            p.Name,
-            payment.Plan,
-            StringComparison.OrdinalIgnoreCase));
+        // 9. Find the plan.
+        var plan =
+            PlanDefinitions.Plans.Values
+                .FirstOrDefault(p =>
+                    string.Equals(
+                        p.Name,
+                        payment.Plan,
+                        StringComparison.OrdinalIgnoreCase));
 
         if (plan == null)
         {
@@ -631,8 +623,10 @@ public class PaymentController : ControllerBase
                 message = "Invalid subscription plan."
             });
         }
+
         var fetchedAmount =
-    Convert.ToInt64(razorpayPayment["amount"]);
+            Convert.ToInt64(
+                razorpayPayment["amount"]);
 
         var expectedAmountInPaise =
             (long)Math.Round(
@@ -648,13 +642,36 @@ public class PaymentController : ControllerBase
             });
         }
 
-        // 11. Atomically record the payment,
-        // activate the subscription, and mark the webhook processed.
+        // 10. Atomically record the payment,
+        // activate the subscription,
+        // and mark the webhook as processed.
         await using var transaction =
-            await _context.Database.BeginTransactionAsync();
+            await _context.Database.BeginTransactionAsync(
+                System.Data.IsolationLevel.Serializable);
 
         try
         {
+            // Reload the payment inside the transaction.
+            // This protects against concurrent webhook requests.
+            await _context.Entry(payment).ReloadAsync();
+
+            // Another request may have already processed
+            // this payment while this request was waiting.
+            if (payment.Status == "Paid")
+            {
+                webhookEvent.Processed = true;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Payment already processed."
+                });
+            }
+
+            // 11. Mark payment as paid.
             payment.PaymentId =
                 razorpayPaymentId;
 
@@ -680,7 +697,8 @@ public class PaymentController : ControllerBase
             }
 
             subscription.Plan = plan.Name;
-            subscription.MonthlyPrice = plan.MonthlyPrice;
+            subscription.MonthlyPrice =
+                plan.MonthlyPrice;
             subscription.MonthlyAuditLimit =
                 plan.MonthlyAuditLimit;
             subscription.StartDate =
