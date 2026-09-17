@@ -46,6 +46,9 @@ public class UrlAuditDbContext : DbContext
     public DbSet<Payment> Payments =>
         Set<Payment>();
 
+    public DbSet<PaymentWebhookEvent> PaymentWebhookEvents =>
+        Set<PaymentWebhookEvent>();
+
 
     // =========================================================
     // NOTIFICATIONS
@@ -139,5 +142,9 @@ public class UrlAuditDbContext : DbContext
         modelBuilder.Entity<Subscription>()
             .Property(s => s.ExternalSubscriptionId)
             .HasMaxLength(200);
+         
+        modelBuilder.Entity<PaymentWebhookEvent>()
+             .HasIndex(e => e.EventId)
+             .IsUnique();
     }
 }

@@ -92,4 +92,29 @@ public class RazorpayService
 
         return client.Payment.Fetch(paymentId);
     }
+public bool VerifyWebhookSignature(
+    string payload,
+    string signature,
+    string webhookSecret)
+{
+    if (string.IsNullOrWhiteSpace(payload) ||
+        string.IsNullOrWhiteSpace(signature) ||
+        string.IsNullOrWhiteSpace(webhookSecret))
+    {
+        return false;
+    }
+
+    using var hmac = new HMACSHA256(
+        Encoding.UTF8.GetBytes(webhookSecret));
+
+    var hash = hmac.ComputeHash(
+        Encoding.UTF8.GetBytes(payload));
+
+    var generatedSignature =
+        Convert.ToHexString(hash).ToLowerInvariant();
+
+    return CryptographicOperations.FixedTimeEquals(
+        Encoding.UTF8.GetBytes(generatedSignature),
+        Encoding.UTF8.GetBytes(signature));
+}
 }
