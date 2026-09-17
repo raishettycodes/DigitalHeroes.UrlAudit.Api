@@ -20,15 +20,18 @@ public class PaymentController : ControllerBase
     private readonly UrlAuditDbContext _context;
     private readonly RazorpayService _razorpayService;
     private readonly RazorpayOptions _razorpayOptions;
+    private readonly ILogger<PaymentController> _logger;
 
     public PaymentController(
         UrlAuditDbContext context,
         RazorpayService razorpayService,
-        IOptions<RazorpayOptions> razorpayOptions)
+        IOptions<RazorpayOptions> razorpayOptions,
+         ILogger<PaymentController> logger)
     {
         _context = context;
         _razorpayService = razorpayService;
         _razorpayOptions = razorpayOptions.Value;
+         _logger = logger;
     }
 
     [HttpPost("create-order")]
@@ -410,6 +413,10 @@ public class PaymentController : ControllerBase
             root.TryGetProperty("event", out var eventProperty)
                 ? eventProperty.GetString() ?? "unknown"
                 : "unknown";
+        _logger.LogInformation(
+    "Razorpay webhook received. EventId={EventId}, EventType={EventType}",
+           eventId,
+           eventType);
 
         // 4. Record the webhook event immediately.
         var webhookEvent = new PaymentWebhookEvent
@@ -522,7 +529,13 @@ public class PaymentController : ControllerBase
             await _context.Payments
                 .FirstOrDefaultAsync(p =>
                     p.OrderId == razorpayOrderId);
-
+        _logger.LogInformation(
+    "Webhook payment lookup. EventId={EventId}, OrderId={OrderId}, PaymentFound={PaymentFound}, PaymentStatus={PaymentStatus}, Plan={Plan}",
+    eventId,
+    razorpayOrderId,
+    payment != null,
+    payment?.Status,
+    payment?.Plan);
         if (payment == null)
         {
             return NotFound(new
@@ -645,6 +658,13 @@ public class PaymentController : ControllerBase
         // 10. Atomically record the payment,
         // activate the subscription,
         // and mark the webhook as processed.
+        _logger.LogInformation(
+         "Webhook entering payment transaction. EventId={EventId}, PaymentId={PaymentId}, PaymentStatus={PaymentStatus}, Plan={Plan}",
+         eventId,
+         razorpayPaymentId,
+         payment.Status,
+         payment.Plan);
+
         await using var transaction =
             await _context.Database.BeginTransactionAsync(
                 System.Data.IsolationLevel.Serializable);
@@ -719,8 +739,15 @@ public class PaymentController : ControllerBase
 
             await transaction.CommitAsync();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(
+                ex,
+                "Razorpay webhook transaction failed. EventId={EventId}, PaymentId={PaymentId}, OrderId={OrderId}",
+                eventId,
+                razorpayPaymentId,
+                razorpayOrderId);
+
             await transaction.RollbackAsync();
             throw;
         }
