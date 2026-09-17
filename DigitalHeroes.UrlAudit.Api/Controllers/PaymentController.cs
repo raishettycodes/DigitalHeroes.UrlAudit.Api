@@ -713,4 +713,41 @@ public class PaymentController : ControllerBase
             message = "Payment webhook processed successfully."
         });
     }
+
+    [HttpGet("webhook-events")]
+    public async Task<IActionResult> GetWebhookEvents()
+    {
+        var userIdClaim =
+            User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new
+            {
+                success = false,
+                message = "Invalid user identity."
+            });
+        }
+
+        var events = await _context.PaymentWebhookEvents
+            .Where(e => e.UserId == userId)
+            .OrderByDescending(e => e.ReceivedAt)
+            .Take(20)
+            .Select(e => new
+            {
+                e.EventId,
+                e.EventType,
+                e.RazorpayPaymentId,
+                e.RazorpayOrderId,
+                e.ReceivedAt,
+                e.Processed
+            })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            success = true,
+            events
+        });
+    }
 }
