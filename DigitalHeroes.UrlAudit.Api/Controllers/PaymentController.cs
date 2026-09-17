@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using DigitalHeroes.UrlAudit.Api.Configuration;
+﻿using DigitalHeroes.UrlAudit.Api.Configuration;
 using DigitalHeroes.UrlAudit.Api.Data;
 using DigitalHeroes.UrlAudit.Api.Models;
 using DigitalHeroes.UrlAudit.Api.Services;
@@ -7,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
 
 namespace DigitalHeroes.UrlAudit.Api.Controllers;
 
@@ -91,6 +91,7 @@ public class PaymentController : ControllerBase
         };
 
         _context.Payments.Add(payment);
+
         await _context.SaveChangesAsync();
 
         return Ok(new CreatePaymentOrderResponse
@@ -103,13 +104,9 @@ public class PaymentController : ControllerBase
         });
     }
 
-
-
-
-
     [HttpPost("verify")]
     public async Task<IActionResult> VerifyPayment(
-    [FromBody] VerifyPaymentRequest request)
+        [FromBody] VerifyPaymentRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Plan) ||
             string.IsNullOrWhiteSpace(request.RazorpayOrderId) ||
@@ -162,14 +159,17 @@ public class PaymentController : ControllerBase
             });
         }
 
-        var isValid = _razorpayService.VerifyPaymentSignature(
-            request.RazorpayOrderId,
-            request.RazorpayPaymentId,
-            request.RazorpaySignature);
+        // 1. Verify the Razorpay signature.
+        var isValidSignature =
+            _razorpayService.VerifyPaymentSignature(
+                request.RazorpayOrderId,
+                request.RazorpayPaymentId,
+                request.RazorpaySignature);
 
-        if (!isValid)
+        if (!isValidSignature)
         {
             payment.Status = "Failed";
+
             await _context.SaveChangesAsync();
 
             return BadRequest(new
@@ -178,24 +178,108 @@ public class PaymentController : ControllerBase
             });
         }
 
-        payment.PaymentId = request.RazorpayPaymentId;
-        payment.Signature = request.RazorpaySignature;
-        payment.Status = "Paid";
-        payment.PaidAt = DateTime.UtcNow;
+        // 2. Fetch the payment directly from Razorpay.
+        Razorpay.Api.Payment razorpayPayment;
 
-        var subscription = await _context.Subscriptions
-            .FirstOrDefaultAsync(s => s.UserId == userId);
-
-        if (subscription == null)
+        try
         {
-            subscription = new Subscription
-            {
-                UserId = userId
-            };
-
-            _context.Subscriptions.Add(subscription);
+            razorpayPayment =
+                _razorpayService.FetchPayment(
+                    request.RazorpayPaymentId);
+        }
+        catch
+        {
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                new
+                {
+                    message =
+                        "Unable to verify payment status with Razorpay."
+                });
         }
 
+        // 3. Verify the payment ID.
+        var razorpayPaymentId =
+            razorpayPayment["id"]?.ToString();
+
+        if (!string.Equals(
+                razorpayPaymentId,
+                request.RazorpayPaymentId,
+                StringComparison.Ordinal))
+        {
+            return BadRequest(new
+            {
+                message = "Payment ID does not match Razorpay."
+            });
+        }
+
+        // 4. Verify the order ID.
+        var razorpayOrderId =
+            razorpayPayment["order_id"]?.ToString();
+
+        if (!string.Equals(
+                razorpayOrderId,
+                request.RazorpayOrderId,
+                StringComparison.Ordinal))
+        {
+            return BadRequest(new
+            {
+                message = "Payment order does not match Razorpay."
+            });
+        }
+
+        // 5. Verify the currency.
+        var razorpayCurrency =
+            razorpayPayment["currency"]?.ToString();
+
+        if (!string.Equals(
+                razorpayCurrency,
+                payment.Currency,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                message = "Payment currency does not match the order."
+            });
+        }
+
+        // 6. Verify the amount.
+        var razorpayAmount =
+            Convert.ToInt64(razorpayPayment["amount"]);
+
+        var expectedAmountInPaise =
+            (long)Math.Round(
+                payment.Amount * 100,
+                MidpointRounding.AwayFromZero);
+
+        if (razorpayAmount != expectedAmountInPaise)
+        {
+            return BadRequest(new
+            {
+                message = "Payment amount does not match the order."
+            });
+        }
+
+        // 7. Verify that Razorpay considers the payment captured.
+        var razorpayStatus =
+            razorpayPayment["status"]?.ToString();
+
+        var captured =
+            Convert.ToBoolean(razorpayPayment["captured"]);
+
+        if (!captured ||
+            !string.Equals(
+                razorpayStatus,
+                "captured",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                message = "Payment has not been captured."
+            });
+        }
+
+        // 8. Find the requested subscription plan.
         var plan = PlanDefinitions.Plans.Values
             .FirstOrDefault(p =>
                 string.Equals(
@@ -211,6 +295,33 @@ public class PaymentController : ControllerBase
             });
         }
 
+        // 9. Record the verified payment.
+        payment.PaymentId =
+            request.RazorpayPaymentId;
+
+        payment.Signature =
+            request.RazorpaySignature;
+
+        payment.Status = "Paid";
+
+        payment.PaidAt =
+            DateTime.UtcNow;
+
+        // 10. Activate the subscription.
+        var subscription = await _context.Subscriptions
+            .FirstOrDefaultAsync(s =>
+                s.UserId == userId);
+
+        if (subscription == null)
+        {
+            subscription = new Subscription
+            {
+                UserId = userId
+            };
+
+            _context.Subscriptions.Add(subscription);
+        }
+
         subscription.Plan = plan.Name;
         subscription.MonthlyPrice = plan.MonthlyPrice;
         subscription.MonthlyAuditLimit = plan.MonthlyAuditLimit;
@@ -221,14 +332,16 @@ public class PaymentController : ControllerBase
         subscription.PaymentProvider = "Razorpay";
         subscription.ExternalSubscriptionId =
             request.RazorpayPaymentId;
-        subscription.UpdatedAt = DateTime.UtcNow;
+        subscription.UpdatedAt =
+            DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
 
         return Ok(new
         {
             success = true,
-            message = "Payment verified and subscription activated.",
+            message =
+                "Payment verified and subscription activated.",
             plan = subscription.Plan,
             paymentId = payment.PaymentId
         });

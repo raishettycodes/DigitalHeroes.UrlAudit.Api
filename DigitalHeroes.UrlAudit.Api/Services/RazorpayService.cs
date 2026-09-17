@@ -75,4 +75,21 @@ public class RazorpayService
             Encoding.UTF8.GetBytes(generatedSignature),
             Encoding.UTF8.GetBytes(signature));
     }
+
+    public Razorpay.Api.Payment FetchPayment(
+        string paymentId)
+    {
+        if (string.IsNullOrWhiteSpace(_options.KeyId) ||
+            string.IsNullOrWhiteSpace(_options.KeySecret))
+        {
+            throw new InvalidOperationException(
+                "Razorpay configuration is missing.");
+        }
+
+        var client = new RazorpayClient(
+            _options.KeyId,
+            _options.KeySecret);
+
+        return client.Payment.Fetch(paymentId);
+    }
 }
