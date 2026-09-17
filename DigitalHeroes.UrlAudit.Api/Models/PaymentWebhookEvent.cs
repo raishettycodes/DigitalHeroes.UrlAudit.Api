@@ -8,6 +8,12 @@ public class PaymentWebhookEvent
 
     public string EventType { get; set; } = string.Empty;
 
+    public int? UserId { get; set; }
+
+    public string? RazorpayPaymentId { get; set; }
+
+    public string? RazorpayOrderId { get; set; }
+
     public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
 
     public bool Processed { get; set; }

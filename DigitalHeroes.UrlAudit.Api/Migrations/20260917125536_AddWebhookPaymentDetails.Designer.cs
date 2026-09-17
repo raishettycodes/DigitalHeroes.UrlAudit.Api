@@ -4,6 +4,7 @@ using DigitalHeroes.UrlAudit.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DigitalHeroes.UrlAudit.Api.Migrations
 {
     [DbContext(typeof(UrlAuditDbContext))]
-    partial class UrlAuditDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260917125536_AddWebhookPaymentDetails")]
+    partial class AddWebhookPaymentDetails
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

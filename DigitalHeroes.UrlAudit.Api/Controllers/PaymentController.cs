@@ -520,6 +520,20 @@ public class PaymentController : ControllerBase
                 message = "Payment order not found."
             });
         }
+        if (payment == null)
+        {
+            return NotFound(new
+            {
+                success = false,
+                message = "Payment order not found."
+            });
+        }
+
+        webhookEvent.UserId = payment.UserId;
+        webhookEvent.RazorpayPaymentId = razorpayPaymentId;
+        webhookEvent.RazorpayOrderId = razorpayOrderId;
+
+        await _context.SaveChangesAsync();
 
         // 8. Idempotency at payment level too.
         if (payment.Status == "Paid")
