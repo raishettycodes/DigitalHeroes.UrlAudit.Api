@@ -84,8 +84,30 @@ public class AuditService
             int userId)
     {
         var subscription =
-            await GetOrCreateSubscriptionAsync(
-                userId);
+    await GetOrCreateSubscriptionAsync(
+        userId);
+
+        var now = DateTime.UtcNow;
+
+        // Expire paid subscriptions automatically
+        if (subscription.MonthlyPrice > 0 &&
+            subscription.EndDate.HasValue &&
+            subscription.EndDate.Value <= now &&
+            subscription.IsActive)
+        {
+            subscription.IsActive = false;
+            subscription.Status = "Expired";
+            subscription.UpdatedAt = now;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Subscription expired during usage check. " +
+                "UserId: {UserId}, Plan: {Plan}, EndDate: {EndDate}",
+                userId,
+                subscription.Plan,
+                subscription.EndDate);
+        }
 
         var auditsUsed =
             await GetMonthlyAuditCountAsync(
@@ -193,8 +215,32 @@ public class AuditService
          */
 
         var subscription =
-            await GetOrCreateSubscriptionAsync(
-                userId);
+     await GetOrCreateSubscriptionAsync(
+         userId);
+
+        var now = DateTime.UtcNow;
+
+        // Paid subscription expiry check
+        if (subscription.MonthlyPrice > 0 &&
+            subscription.EndDate.HasValue &&
+            subscription.EndDate.Value <= now)
+        {
+            subscription.IsActive = false;
+            subscription.Status = "Expired";
+            subscription.UpdatedAt = now;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Subscription expired. UserId: {UserId}, Plan: {Plan}, EndDate: {EndDate}",
+                userId,
+                subscription.Plan,
+                subscription.EndDate);
+
+            return CreateFailureResponse(
+                normalizedUrl,
+                "Your subscription has expired. Please renew your plan to continue auditing.");
+        }
 
         if (!subscription.IsActive)
         {

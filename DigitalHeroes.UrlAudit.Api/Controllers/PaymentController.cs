@@ -330,8 +330,10 @@ public class PaymentController : ControllerBase
         subscription.Plan = plan.Name;
         subscription.MonthlyPrice = plan.MonthlyPrice;
         subscription.MonthlyAuditLimit = plan.MonthlyAuditLimit;
-        subscription.StartDate = DateTime.UtcNow;
-        subscription.EndDate = null;
+        var subscriptionStart = DateTime.UtcNow;
+
+        subscription.StartDate = subscriptionStart;
+        subscription.EndDate = subscriptionStart.AddDays(30);
         subscription.IsActive = true;
         subscription.Status = "Active";
         subscription.PaymentProvider = "Razorpay";
@@ -774,16 +776,12 @@ public class PaymentController : ControllerBase
                 subscription.MonthlyAuditLimit =
                     plan.MonthlyAuditLimit;
 
-                subscription.StartDate =
-                    DateTime.UtcNow;
+                var subscriptionStart = DateTime.UtcNow;
 
-                subscription.EndDate = null;
-
+                subscription.StartDate = subscriptionStart;
+                subscription.EndDate = subscriptionStart.AddDays(30);
                 subscription.IsActive = true;
-
-                subscription.Status =
-                    "Active";
-
+                subscription.Status = "Active";
                 subscription.PaymentProvider =
                     "Razorpay";
 
