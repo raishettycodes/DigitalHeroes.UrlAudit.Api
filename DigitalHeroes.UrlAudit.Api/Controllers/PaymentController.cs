@@ -705,6 +705,10 @@ public class PaymentController : ControllerBase
                 };
 
                 _context.PaymentWebhookEvents.Add(webhookEvent);
+                _logger.LogInformation(
+    "Webhook event entity added. EventId={EventId}, EntityState={EntityState}",
+    eventId,
+    _context.Entry(webhookEvent).State);
             }
 
             webhookEvent.EventType = eventType;
@@ -723,6 +727,11 @@ public class PaymentController : ControllerBase
             if (payment.Status == "Paid")
             {
                 webhookEvent.Processed = true;
+                _logger.LogInformation(
+    "Webhook SaveChanges starting. EventId={EventId}, WebhookEventState={WebhookEventState}, PaymentState={PaymentState}",
+    eventId,
+    _context.Entry(webhookEvent).State,
+    _context.Entry(payment).State);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -790,6 +799,8 @@ public class PaymentController : ControllerBase
             // 14. Mark webhook processed.
             webhookEvent.Processed = true;
 
+
+
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -798,10 +809,11 @@ public class PaymentController : ControllerBase
         {
             _logger.LogError(
                 ex,
-                "Razorpay webhook transaction failed. EventId={EventId}, PaymentId={PaymentId}, OrderId={OrderId}",
+                "WEBHOOK SAVE FAILED. EventId={EventId}, PaymentId={PaymentId}, OrderId={OrderId}, PaymentState={PaymentState}",
                 eventId,
                 razorpayPaymentId,
-                razorpayOrderId);
+                razorpayOrderId,
+                _context.Entry(payment).State);
 
             await transaction.RollbackAsync();
             throw;
@@ -843,6 +855,7 @@ public class PaymentController : ControllerBase
                 e.Processed
             })
             .ToListAsync();
+
 
         return Ok(new
         {
