@@ -670,155 +670,156 @@ public class PaymentController : ControllerBase
             payment.Status,
             payment.Plan);
 
-        await using var transaction =
-            await _context.Database.BeginTransactionAsync(
-                System.Data.IsolationLevel.Serializable);
+        var executionStrategy =
+     _context.Database.CreateExecutionStrategy();
 
-        try
+        await executionStrategy.ExecuteAsync(async () =>
         {
-            // 10. Re-check the webhook event inside the transaction.
-            var webhookEvent =
-                await _context.PaymentWebhookEvents
-                    .FirstOrDefaultAsync(e =>
-                        e.EventId == eventId);
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync(
+                    System.Data.IsolationLevel.Serializable);
 
-            if (webhookEvent?.Processed == true)
+            try
             {
-                await transaction.CommitAsync();
+                // 10. Re-check the webhook event inside the transaction.
+                var webhookEvent =
+                    await _context.PaymentWebhookEvents
+                        .FirstOrDefaultAsync(e =>
+                            e.EventId == eventId);
 
-                return Ok(new
+                if (webhookEvent?.Processed == true)
                 {
-                    success = true,
-                    message = "Webhook already processed."
-                });
-            }
+                    await transaction.CommitAsync();
+                    return;
+                }
 
-            // Create the event only if it doesn't already exist.
-            if (webhookEvent == null)
-            {
-                webhookEvent = new PaymentWebhookEvent
+                // Create the event only if it doesn't already exist.
+                if (webhookEvent == null)
                 {
-                    EventId = eventId,
-                    EventType = eventType,
-                    ReceivedAt = DateTime.UtcNow,
-                    Processed = false
-                };
+                    webhookEvent = new PaymentWebhookEvent
+                    {
+                        EventId = eventId,
+                        EventType = eventType,
+                        ReceivedAt = DateTime.UtcNow,
+                        Processed = false
+                    };
 
-                _context.PaymentWebhookEvents.Add(webhookEvent);
-                _logger.LogInformation(
-    "Webhook event entity added. EventId={EventId}, EntityState={EntityState}",
-    eventId,
-    _context.Entry(webhookEvent).State);
-            }
+                    _context.PaymentWebhookEvents.Add(webhookEvent);
 
-            webhookEvent.EventType = eventType;
-            webhookEvent.RazorpayPaymentId =
-                razorpayPaymentId;
-            webhookEvent.RazorpayOrderId =
-                razorpayOrderId;
-            webhookEvent.UserId =
-                payment.UserId;
+                    _logger.LogInformation(
+                        "Webhook event entity added. EventId={EventId}, EntityState={EntityState}",
+                        eventId,
+                        _context.Entry(webhookEvent).State);
+                }
 
-            // 11. Reload the payment while holding the transaction.
-            await _context.Entry(payment).ReloadAsync();
+                webhookEvent.EventType = eventType;
+                webhookEvent.RazorpayPaymentId =
+                    razorpayPaymentId;
+                webhookEvent.RazorpayOrderId =
+                    razorpayOrderId;
+                webhookEvent.UserId =
+                    payment.UserId;
 
-            // Another webhook request may have completed
-            // the payment while this request was waiting.
-            if (payment.Status == "Paid")
-            {
+                // 11. Reload the payment while holding the transaction.
+                await _context.Entry(payment).ReloadAsync();
+
+                // Another webhook request may have completed
+                // the payment while this request was waiting.
+                if (payment.Status == "Paid")
+                {
+                    webhookEvent.Processed = true;
+
+                    _logger.LogInformation(
+                        "Webhook SaveChanges starting. EventId={EventId}, WebhookEventState={WebhookEventState}, PaymentState={PaymentState}",
+                        eventId,
+                        _context.Entry(webhookEvent).State,
+                        _context.Entry(payment).State);
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return;
+                }
+
+                payment.PaymentId =
+                    razorpayPaymentId;
+
+                payment.Status = "Paid";
+
+                payment.PaidAt =
+                    DateTime.UtcNow;
+
+                // 13. Activate or update subscription.
+                var subscription =
+                    await _context.Subscriptions
+                        .FirstOrDefaultAsync(s =>
+                            s.UserId == payment.UserId);
+
+                if (subscription == null)
+                {
+                    subscription = new Subscription
+                    {
+                        UserId = payment.UserId
+                    };
+
+                    _context.Subscriptions.Add(subscription);
+                }
+
+                subscription.Plan =
+                    plan.Name;
+
+                subscription.MonthlyPrice =
+                    plan.MonthlyPrice;
+
+                subscription.MonthlyAuditLimit =
+                    plan.MonthlyAuditLimit;
+
+                subscription.StartDate =
+                    DateTime.UtcNow;
+
+                subscription.EndDate = null;
+
+                subscription.IsActive = true;
+
+                subscription.Status =
+                    "Active";
+
+                subscription.PaymentProvider =
+                    "Razorpay";
+
+                subscription.ExternalSubscriptionId =
+                    razorpayPaymentId;
+
+                subscription.UpdatedAt =
+                    DateTime.UtcNow;
+
+                // 14. Mark webhook processed.
                 webhookEvent.Processed = true;
+
                 _logger.LogInformation(
-    "Webhook SaveChanges starting. EventId={EventId}, WebhookEventState={WebhookEventState}, PaymentState={PaymentState}",
-    eventId,
-    _context.Entry(webhookEvent).State,
-    _context.Entry(payment).State);
+                    "Webhook SaveChanges starting. EventId={EventId}, WebhookEventState={WebhookEventState}, PaymentState={PaymentState}",
+                    eventId,
+                    _context.Entry(webhookEvent).State,
+                    _context.Entry(payment).State);
 
                 await _context.SaveChangesAsync();
+
                 await transaction.CommitAsync();
-
-                return Ok(new
-                {
-                    success = true,
-                    message = "Payment already processed."
-                });
             }
-
-            // 12. Mark payment as paid.
-            payment.PaymentId =
-                razorpayPaymentId;
-
-            payment.Status = "Paid";
-
-            payment.PaidAt =
-                DateTime.UtcNow;
-
-            // 13. Activate or update subscription.
-            var subscription =
-                await _context.Subscriptions
-                    .FirstOrDefaultAsync(s =>
-                        s.UserId == payment.UserId);
-
-            if (subscription == null)
+            catch (Exception ex)
             {
-                subscription = new Subscription
-                {
-                    UserId = payment.UserId
-                };
+                _logger.LogError(
+                    ex,
+                    "WEBHOOK SAVE FAILED. EventId={EventId}, PaymentId={PaymentId}, OrderId={OrderId}, PaymentState={PaymentState}",
+                    eventId,
+                    razorpayPaymentId,
+                    razorpayOrderId,
+                    _context.Entry(payment).State);
 
-                _context.Subscriptions.Add(subscription);
+                await transaction.RollbackAsync();
+                throw;
             }
-
-            subscription.Plan =
-                plan.Name;
-
-            subscription.MonthlyPrice =
-                plan.MonthlyPrice;
-
-            subscription.MonthlyAuditLimit =
-                plan.MonthlyAuditLimit;
-
-            subscription.StartDate =
-                DateTime.UtcNow;
-
-            subscription.EndDate = null;
-
-            subscription.IsActive = true;
-
-            subscription.Status =
-                "Active";
-
-            subscription.PaymentProvider =
-                "Razorpay";
-
-            subscription.ExternalSubscriptionId =
-                razorpayPaymentId;
-
-            subscription.UpdatedAt =
-                DateTime.UtcNow;
-
-            // 14. Mark webhook processed.
-            webhookEvent.Processed = true;
-
-
-
-            await _context.SaveChangesAsync();
-
-            await transaction.CommitAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "WEBHOOK SAVE FAILED. EventId={EventId}, PaymentId={PaymentId}, OrderId={OrderId}, PaymentState={PaymentState}",
-                eventId,
-                razorpayPaymentId,
-                razorpayOrderId,
-                _context.Entry(payment).State);
-
-            await transaction.RollbackAsync();
-            throw;
-        }
-
+        });
         return Ok(new
         {
             success = true,
