@@ -236,6 +236,208 @@ public class SubscriptionControllerTests
     }
 
     [Fact]
+    public async Task GetUsage_DoesNotCountAuditsFromAnotherUser()
+    {
+        await using var context = CreateContext();
+
+        context.Subscriptions.Add(new Subscription
+        {
+            UserId = 1,
+            Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free,
+            MonthlyPrice = 0,
+            MonthlyAuditLimit = 100,
+            IsActive = true,
+            Status = "Active"
+        });
+
+        var user1Website = new Website
+        {
+            Name = "User 1 Website",
+            Url = "https://user1.com",
+            UserId = 1,
+            IsActive = true
+        };
+
+        var user2Website = new Website
+        {
+            Name = "User 2 Website",
+            Url = "https://user2.com",
+            UserId = 2,
+            IsActive = true
+        };
+
+        context.Websites.AddRange(user1Website, user2Website);
+        await context.SaveChangesAsync();
+
+        var auditDate = DateTime.UtcNow;
+
+        context.AuditHistories.AddRange(
+            new AuditHistory
+            {
+                WebsiteId = user1Website.Id,
+                Url = user1Website.Url,
+                StatusCode = 200,
+                ResponseTimeMs = 100,
+                IsReachable = true,
+                Message = "OK",
+                CreatedAt = auditDate
+            },
+            new AuditHistory
+            {
+                WebsiteId = user2Website.Id,
+                Url = user2Website.Url,
+                StatusCode = 200,
+                ResponseTimeMs = 100,
+                IsReachable = true,
+                Message = "OK",
+                CreatedAt = auditDate
+            },
+            new AuditHistory
+            {
+                WebsiteId = user2Website.Id,
+                Url = user2Website.Url,
+                StatusCode = 200,
+                ResponseTimeMs = 100,
+                IsReachable = true,
+                Message = "OK",
+                CreatedAt = auditDate
+            });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context, 1);
+
+        var result = await controller.GetUsage();
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var usage = Assert.IsType<SubscriptionDto>(okResult.Value);
+
+        Assert.Equal(1, usage.AuditsUsed);
+        Assert.Equal(99, usage.RemainingAudits);
+        Assert.Equal(1, usage.UsagePercentage);
+        Assert.False(usage.IsUnlimited);
+    }
+
+    [Fact]
+    public async Task GetUsage_WhenAuditsExceedLimit_CapsRemainingAtZeroAndPercentageAt100()
+    {
+        await using var context = CreateContext();
+
+        context.Subscriptions.Add(new Subscription
+        {
+            UserId = 1,
+            Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free,
+            MonthlyPrice = 0,
+            MonthlyAuditLimit = 100,
+            IsActive = true,
+            Status = "Active"
+        });
+
+        var website = new Website
+        {
+            Name = "Test Website",
+            Url = "https://example.com",
+            UserId = 1,
+            IsActive = true
+        };
+
+        context.Websites.Add(website);
+        await context.SaveChangesAsync();
+
+        var auditDate = DateTime.UtcNow;
+
+        var audits = Enumerable.Range(1, 105)
+            .Select(_ => new AuditHistory
+            {
+                WebsiteId = website.Id,
+                Url = website.Url,
+                StatusCode = 200,
+                ResponseTimeMs = 100,
+                IsReachable = true,
+                Message = "OK",
+                CreatedAt = auditDate
+            });
+
+        context.AuditHistories.AddRange(audits);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context, 1);
+
+        var result = await controller.GetUsage();
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var usage = Assert.IsType<SubscriptionDto>(okResult.Value);
+
+        Assert.Equal(105, usage.AuditsUsed);
+        Assert.Equal(0, usage.RemainingAudits);
+        Assert.Equal(100, usage.UsagePercentage);
+        Assert.False(usage.IsUnlimited);
+    }
+
+    [Fact]
+    public async Task GetUsage_ForUnlimitedPlan_ReturnsUnlimitedUsage()
+    {
+        await using var context = CreateContext();
+
+        context.Subscriptions.Add(new Subscription
+        {
+            UserId = 1,
+            Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Agency,
+            MonthlyPrice = 1499,
+            MonthlyAuditLimit = -1,
+            IsActive = true,
+            Status = "Active"
+        });
+
+        var website = new Website
+        {
+            Name = "Test Website",
+            Url = "https://example.com",
+            UserId = 1,
+            IsActive = true
+        };
+
+        context.Websites.Add(website);
+        await context.SaveChangesAsync();
+
+        var auditDate = DateTime.UtcNow;
+
+        var audits = Enumerable.Range(1, 105)
+            .Select(_ => new AuditHistory
+            {
+                WebsiteId = website.Id,
+                Url = website.Url,
+                StatusCode = 200,
+                ResponseTimeMs = 100,
+                IsReachable = true,
+                Message = "OK",
+                CreatedAt = auditDate
+            });
+
+        context.AuditHistories.AddRange(audits);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context, 1);
+
+        var result = await controller.GetUsage();
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var usage = Assert.IsType<SubscriptionDto>(okResult.Value);
+
+        Assert.Equal(105, usage.AuditsUsed);
+        Assert.Equal(-1, usage.RemainingAudits);
+        Assert.Equal(0, usage.UsagePercentage);
+        Assert.True(usage.IsUnlimited);
+
+        Assert.Equal(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Agency,
+            usage.Plan);
+
+        Assert.Equal(1499, usage.MonthlyPrice);
+        Assert.Equal(-1, usage.MonthlyAuditLimit);
+    }
+
+    [Fact]
     public async Task Upgrade_ToFreePlan_ActivatesFreePlan()
     {
         await using var context = CreateContext();
