@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DigitalHeroes.UrlAudit.Api.Controllers;
 
@@ -62,6 +63,7 @@ public class NotificationController : ControllerBase
     }
 
     [HttpPut("{id}/read")]
+    [EnableRateLimiting("FixedPolicy")]
     public async Task<IActionResult> MarkAsRead(int id)
     {
         var userId = GetUserId();
@@ -97,6 +99,7 @@ public class NotificationController : ControllerBase
     }
 
     [HttpPut("read-all")]
+    [EnableRateLimiting("FixedPolicy")]
     public async Task<IActionResult> MarkAllAsRead()
     {
         var userId = GetUserId();
@@ -137,6 +140,7 @@ public class NotificationController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [EnableRateLimiting("FixedPolicy")]
     public async Task<IActionResult> Delete(int id)
     {
         var userId = GetUserId();
