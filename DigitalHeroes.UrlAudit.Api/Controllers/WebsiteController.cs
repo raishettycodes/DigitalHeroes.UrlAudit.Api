@@ -3,6 +3,7 @@ using DigitalHeroes.UrlAudit.Api.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DigitalHeroes.UrlAudit.Api.Controllers
 {
@@ -25,6 +26,7 @@ namespace DigitalHeroes.UrlAudit.Api.Controllers
         }
 
         [HttpPost]
+        [EnableRateLimiting("FixedPolicy")]
         public async Task<IActionResult> Add(CreateWebsiteDto dto)
         {
             var userId = GetUserId();
@@ -43,6 +45,7 @@ namespace DigitalHeroes.UrlAudit.Api.Controllers
             return Ok(
                 await _websiteService.GetAllAsync(userId));
         }
+
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
@@ -64,7 +67,9 @@ namespace DigitalHeroes.UrlAudit.Api.Controllers
             return Ok(result);
         }
 
+
         [HttpPut("{id}")]
+        [EnableRateLimiting("FixedPolicy")]
         public async Task<IActionResult> Update(
             int id,
             UpdateWebsiteDto dto)
@@ -90,6 +95,7 @@ namespace DigitalHeroes.UrlAudit.Api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [EnableRateLimiting("FixedPolicy")]
         public async Task<IActionResult> Delete(int id)
         {
             var userId = GetUserId();
