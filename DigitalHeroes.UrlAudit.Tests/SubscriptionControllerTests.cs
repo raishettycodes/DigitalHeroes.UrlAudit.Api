@@ -51,7 +51,7 @@ public class SubscriptionControllerTests
     }
 
     [Fact]
-    public void GetPlans_ReturnsAllPlans()
+    public void GetPlans_ReturnsAllFourPlans()
     {
         using var context = CreateContext();
         var controller = CreateController(context, 1);
@@ -63,7 +63,31 @@ public class SubscriptionControllerTests
         var plans = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
             okResult.Value);
 
-        Assert.NotNull(plans);
+        var planList = plans
+            .Cast<object>()
+            .ToList();
+
+        Assert.Equal(4, planList.Count);
+
+        var planNames = planList
+            .Select(x => x.GetType().GetProperty("name")?.GetValue(x)?.ToString())
+            .ToList();
+
+        Assert.Contains(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free,
+            planNames);
+
+        Assert.Contains(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Starter,
+            planNames);
+
+        Assert.Contains(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Professional,
+            planNames);
+
+        Assert.Contains(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Agency,
+            planNames);
     }
 
     [Fact]
@@ -85,6 +109,130 @@ public class SubscriptionControllerTests
         Assert.Equal(100, subscription.MonthlyAuditLimit);
         Assert.True(subscription.IsActive);
         Assert.Equal("Active", subscription.Status);
+    }
+
+    [Fact]
+    public async Task GetUsage_ForExistingSubscription_ReturnsExistingSubscription()
+    {
+        await using var context = CreateContext();
+
+        context.Subscriptions.Add(new Subscription
+        {
+            UserId = 1,
+            Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Starter,
+            MonthlyPrice = 199,
+            MonthlyAuditLimit = 500,
+            IsActive = true,
+            Status = "Active"
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context, 1);
+
+        var result = await controller.GetUsage();
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(okResult.Value);
+
+        var subscriptions = await context.Subscriptions
+            .Where(x => x.UserId == 1)
+            .ToListAsync();
+
+        Assert.Single(subscriptions);
+
+        var subscription = subscriptions[0];
+
+        Assert.Equal(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Starter,
+            subscription.Plan);
+
+        Assert.Equal(199, subscription.MonthlyPrice);
+        Assert.Equal(500, subscription.MonthlyAuditLimit);
+        Assert.True(subscription.IsActive);
+        Assert.Equal("Active", subscription.Status);
+    }
+
+    [Fact]  
+    public async Task GetUsage_WithCurrentMonthAudits_ReturnsCorrectUsage()
+    {
+        await using var context = CreateContext();
+
+        context.Subscriptions.Add(new Subscription
+        {
+            UserId = 1,
+            Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free,
+            MonthlyPrice = 0,
+            MonthlyAuditLimit = 100,
+            IsActive = true,
+            Status = "Active"
+        });
+
+        var website = new Website
+        {
+            Name = "Test Website",
+            Url = "https://example.com",
+            UserId = 1,
+            IsActive = true
+        };
+
+        context.Websites.Add(website);
+        await context.SaveChangesAsync();
+
+        var auditDate = DateTime.UtcNow;
+
+        context.AuditHistories.AddRange(
+            new AuditHistory
+            {
+                WebsiteId = website.Id,
+                Url = website.Url,
+                StatusCode = 200,
+                ResponseTimeMs = 100,
+                IsReachable = true,
+                Message = "OK",
+                CreatedAt = auditDate
+            },
+            new AuditHistory
+            {
+                WebsiteId = website.Id,
+                Url = website.Url,
+                StatusCode = 200,
+                ResponseTimeMs = 150,
+                IsReachable = true,
+                Message = "OK",
+                CreatedAt = auditDate
+            },
+            new AuditHistory
+            {
+                WebsiteId = website.Id,
+                Url = website.Url,
+                StatusCode = 200,
+                ResponseTimeMs = 200,
+                IsReachable = true,
+                Message = "OK",
+                CreatedAt = auditDate
+            });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context, 1);
+
+        var result = await controller.GetUsage();
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+
+        var usage = Assert.IsType<SubscriptionDto>(okResult.Value);
+
+        Assert.Equal(3, usage.AuditsUsed);
+        Assert.Equal(97, usage.RemainingAudits);
+        Assert.Equal(3, usage.UsagePercentage);
+        Assert.False(usage.IsUnlimited);
+
+        Assert.Equal(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free,
+            usage.Plan);
+
+        Assert.Equal(100, usage.MonthlyAuditLimit);
     }
 
     [Fact]
@@ -134,5 +282,75 @@ public class SubscriptionControllerTests
 
         Assert.Empty(
             await context.Subscriptions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Upgrade_ToInvalidPlan_ReturnsBadRequest()
+    {
+        await using var context = CreateContext();
+        var controller = CreateController(context, 1);
+
+        var result = await controller.Upgrade(
+            new UpgradeSubscriptionRequest
+            {
+                Plan = "InvalidPlan"
+            });
+
+        var badRequestResult =
+            Assert.IsType<BadRequestObjectResult>(result);
+
+        Assert.Equal(
+            StatusCodes.Status400BadRequest,
+            badRequestResult.StatusCode);
+
+        Assert.Empty(
+            await context.Subscriptions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Upgrade_ToFreePlan_WithExistingSubscription_UpdatesExistingSubscription()
+    {
+        await using var context = CreateContext();
+
+        context.Subscriptions.Add(new Subscription
+        {
+            UserId = 1,
+            Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free,
+            MonthlyPrice = 0,
+            MonthlyAuditLimit = 100,
+            IsActive = true,
+            Status = "Active"
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context, 1);
+
+        var result = await controller.Upgrade(
+            new UpgradeSubscriptionRequest
+            {
+                Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free
+            });
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(okResult.Value);
+
+        var subscriptions = await context.Subscriptions
+            .Where(x => x.UserId == 1)
+            .ToListAsync();
+
+        Assert.Single(subscriptions);
+
+        var subscription = subscriptions[0];
+
+        Assert.Equal(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free,
+            subscription.Plan);
+
+        Assert.Equal(0, subscription.MonthlyPrice);
+        Assert.Equal(100, subscription.MonthlyAuditLimit);
+        Assert.True(subscription.IsActive);
+        Assert.Equal("Active", subscription.Status);
+        Assert.Null(subscription.EndDate);
     }
 }
