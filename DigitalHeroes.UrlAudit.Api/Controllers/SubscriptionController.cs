@@ -88,6 +88,18 @@ public class SubscriptionController : ControllerBase
         }
 
         var now = DateTime.UtcNow;
+        // Expire paid subscriptions automatically
+        if (subscription.MonthlyPrice > 0 &&
+            subscription.EndDate.HasValue &&
+            subscription.EndDate.Value <= now &&
+            subscription.IsActive)
+        {
+            subscription.IsActive = false;
+            subscription.Status = "Expired";
+            subscription.UpdatedAt = now;
+
+            await _context.SaveChangesAsync();
+        }
 
         var monthStart = new DateTime(
             now.Year,
