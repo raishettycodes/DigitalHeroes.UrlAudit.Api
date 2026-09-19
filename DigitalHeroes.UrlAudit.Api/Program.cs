@@ -230,10 +230,10 @@ try
     app.MapGet("/", () => "DigitalHeroes URL Audit API is running successfully.");
 
 
-    app.UseRateLimiter();
     app.UseHttpsRedirection();
     app.UseCors("AllowAngular");
     app.UseAuthentication();
+    app.UseRateLimiter();
     app.UseAuthorization();
     app.MapControllers();
     app.MapHealthChecks("/health");
