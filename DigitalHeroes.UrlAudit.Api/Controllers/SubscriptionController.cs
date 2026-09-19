@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DigitalHeroes.UrlAudit.Api.Controllers;
 
@@ -173,6 +174,7 @@ public class SubscriptionController : ControllerBase
     // =========================================================
 
     [HttpPost("upgrade")]
+    [EnableRateLimiting("FixedPolicy")]
     public async Task<IActionResult> Upgrade(
         [FromBody] UpgradeSubscriptionRequest request)
     {

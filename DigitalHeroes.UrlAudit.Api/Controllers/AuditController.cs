@@ -184,6 +184,7 @@ public async Task<IActionResult> Audit(
 
 
         [HttpPost("upgrade")]
+        [EnableRateLimiting("FixedPolicy")]
         public async Task<IActionResult> Upgrade(
     [FromBody] UpgradeSubscriptionRequest request)
         {
