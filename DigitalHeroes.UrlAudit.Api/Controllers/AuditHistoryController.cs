@@ -6,6 +6,7 @@ using DigitalHeroes.UrlAudit.Api.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DigitalHeroes.UrlAudit.Api.Controllers;
 
@@ -211,6 +212,7 @@ public class AuditHistoryController : ControllerBase
     // DELETE /api/AuditHistory/{id}
 
     [HttpDelete("{id}")]
+    [EnableRateLimiting("FixedPolicy")]
     public async Task<IActionResult> DeleteAudit(
         int id)
     {
