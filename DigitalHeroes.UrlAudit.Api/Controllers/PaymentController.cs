@@ -9,6 +9,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DigitalHeroes.UrlAudit.Api.Controllers;
 
@@ -35,6 +36,7 @@ public class PaymentController : ControllerBase
     }
 
     [HttpPost("create-order")]
+    [EnableRateLimiting("FixedPolicy")]
     public async Task<IActionResult> CreateOrder(
         [FromBody] CreatePaymentOrderRequest request)
     {
@@ -110,6 +112,7 @@ public class PaymentController : ControllerBase
     }
 
     [HttpPost("verify")]
+    [EnableRateLimiting("FixedPolicy")]
     public async Task<IActionResult> VerifyPayment(
         [FromBody] VerifyPaymentRequest request)
     {
