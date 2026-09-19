@@ -1,201 +1,60 @@
-﻿using System.Diagnostics;
-using DigitalHeroes.UrlAudit.Api.Configuration;
+﻿using DigitalHeroes.UrlAudit.Api.Configuration;
 using DigitalHeroes.UrlAudit.Api.Data;
-using DigitalHeroes.UrlAudit.Api.DTOs;
-using DigitalHeroes.UrlAudit.Api.Helpers;
-using DigitalHeroes.UrlAudit.Api.Interfaces;
-using DigitalHeroes.UrlAudit.Api.Models;
+using DigitalHeroes.UrlAudit.Api.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
+using Moq.Protected;
 
-namespace DigitalHeroes.UrlAudit.Api.Services
+namespace DigitalHeroes.UrlAudit.Tests;
+
+public class AuditServiceTests
 {
-    public class AuditService
+    [Fact]
+    public async Task AuditUrlAsync_WhenRequestTimesOut_ReturnsFailure()
     {
-        private readonly HttpClient _httpClient;
-        private readonly IMemoryCache _cache;
-        private readonly ILogger<AuditService> _logger;
-        private readonly AuditSettings _settings;
-        private readonly UrlAuditDbContext _context;
-        private readonly SeoAuditService _seoAuditService;
+        var handler = new Mock<HttpMessageHandler>();
 
-        public AuditService(
-            HttpClient httpClient,
-            IMemoryCache cache,
-            ILogger<AuditService> logger,
-            IOptions<AuditSettings> options,
-            UrlAuditDbContext context,
-            SeoAuditService seoAuditService)
+        handler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new TaskCanceledException());
+
+        using var httpClient = new HttpClient(handler.Object);
+
+        var cache = new MemoryCache(new MemoryCacheOptions());
+
+        var options = Options.Create(new AuditSettings
         {
-            _httpClient = httpClient;
-            _cache = cache;
-            _logger = logger;
-            _settings = options.Value;
-            _context = context;
-            _seoAuditService = seoAuditService;
+            TimeoutSeconds = 5,
+            CacheDurationMinutes = 5
+        });
 
-            _httpClient.Timeout =
-                TimeSpan.FromSeconds(_settings.TimeoutSeconds);
-        }
+        var dbOptions = new DbContextOptionsBuilder<UrlAuditDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
 
-        public async Task<AuditResponseDto> AuditUrlAsync(string url)
-        {
-            var stopwatch = Stopwatch.StartNew();
+        await using var context = new UrlAuditDbContext(dbOptions);
 
-            string cacheKey = $"audit_{url}";
+        var seoAuditService = new SeoAuditService();
 
-            if (_cache.TryGetValue(cacheKey, out AuditResponseDto? cachedResponse))
-            {
-                _logger.LogInformation("Returning cached result for {Url}", url);
-                return cachedResponse!;
-            }
+        var service = new AuditService(
+            httpClient,
+            cache,
+            NullLogger<AuditService>.Instance,
+            options,
+            context,
+            seoAuditService);
 
-            try
-            {
-                _logger.LogInformation("Auditing URL {Url}", url);
+        var result = await service.AuditUrlAsync("https://example.com",1);
 
-                var response = await _httpClient.GetAsync(url);
-
-                stopwatch.Stop();
-
-                // HTTP Information
-                string server =
-                    response.Headers.Server?.ToString() ?? "Unknown";
-
-                string? contentType =
-                    response.Content.Headers.ContentType?.MediaType;
-
-                long contentLength =
-                    response.Content.Headers.ContentLength ?? 0;
-
-                string httpVersion =
-                    response.Version.ToString();
-
-                bool isRedirect =
-                    (int)response.StatusCode >= 300 &&
-                    (int)response.StatusCode < 400;
-
-                string? redirectLocation =
-                    response.Headers.Location?.ToString();
-
-                bool ssl =
-                    response.RequestMessage?.RequestUri?.Scheme ==
-                    Uri.UriSchemeHttps;
-
-                // =========================================================
-                // SEO ANALYSIS
-                // =========================================================
-
-                string html = await response.Content.ReadAsStringAsync();
-
-                var seo = _seoAuditService.Analyze(url, html);
-
-                // =========================================================
-                // SEO SCORE
-                // =========================================================
-
-                int seoScore = SeoScoreCalculator.Calculate(
-                    seo.Title,
-                    seo.MetaDescription,
-                    seo.H1Count,
-                    seo.Images,
-                    seo.ImagesWithoutAlt,
-                    ssl);
-
-                // Build Response
-                var result = new AuditResponseDto
-                {
-                    Success = true,
-                    Url = url,
-
-                    StatusCode = (int)response.StatusCode,
-
-                    ResponseTimeMs = stopwatch.ElapsedMilliseconds,
-
-                    IsReachable = response.IsSuccessStatusCode,
-
-                    Message = response.IsSuccessStatusCode
-                        ? "URL audited successfully"
-                        : $"Website returned HTTP {(int)response.StatusCode}",
-
-                    HttpVersion = httpVersion,
-
-                    Server = server,
-
-                    ContentType = contentType,
-
-                    ContentLength = contentLength,
-
-                    IsRedirect = isRedirect,
-
-                    RedirectLocation = redirectLocation,
-
-                    IsSslValid = ssl,
-
-                    // SEO
-                    Title = seo.Title,
-
-                    MetaDescription = seo.MetaDescription,
-
-                    H1Count = seo.H1Count,
-
-                    H2Count = seo.H2Count,
-
-                    Images = seo.Images,
-
-                    ImagesWithoutAlt = seo.ImagesWithoutAlt,
-
-                    SeoScore = seoScore
-                };
-
-                // Save Audit History
-                var auditHistory = new AuditHistory
-                {
-                    Url = result.Url!,
-                    StatusCode = result.StatusCode,
-                    ResponseTimeMs = (int)result.ResponseTimeMs,
-                    IsReachable = result.IsReachable,
-                    Message = result.Message,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                _context.AuditHistories.Add(auditHistory);
-
-                await _context.SaveChangesAsync();
-
-                // Cache Result
-                _cache.Set(
-                    cacheKey,
-                    result,
-                    TimeSpan.FromMinutes(_settings.CacheDurationMinutes));
-
-                _logger.LogInformation(
-                    "Stored audit result in cache for {Url}", url);
-
-                return result;
-            }
-            catch (TaskCanceledException)
-            {
-                _logger.LogWarning(
-                    "Request timed out for {Url}", url);
-
-                return new AuditResponseDto
-                {
-                    Success = false,
-                    Url = url,
-                    Message = $"Request timed out after {_settings.TimeoutSeconds} seconds"
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Unexpected error while auditing {Url}",
-                    url);
-
-                throw;
-            }
-        }
+        Assert.False(result.Success);
+        Assert.Equal("https://example.com", result.Url);
+        Assert.Contains("Request timed out", result.Message);
     }
 }
