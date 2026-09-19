@@ -78,28 +78,39 @@ try
     builder.Services.AddHealthChecks();
     builder.Services.AddMemoryCache();
     builder.Services.AddRateLimiter(options =>
-    {
-        options.AddFixedWindowLimiter("FixedPolicy", limiterOptions =>
-        {
-            limiterOptions.PermitLimit = 5;
-            limiterOptions.Window = TimeSpan.FromMinutes(1);
-            limiterOptions.QueueLimit = 0;
-            limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        });
-
-        options.OnRejected = async (context, token) =>
-        {
-            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-            context.HttpContext.Response.ContentType = "application/json";
-
-            await context.HttpContext.Response.WriteAsJsonAsync(new
+{
+    options.AddPolicy("FixedPolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.Identity?.IsAuthenticated == true
+                ? httpContext.User.FindFirst(
+                    System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                    ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                    ?? "anonymous"
+                : httpContext.Connection.RemoteIpAddress?.ToString()
+                    ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
             {
-                Success = false,
-                StatusCode = 429,
-                Message = "Too many requests. Please try again after one minute."
-            }, token);
-        };
-    });
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            Success = false,
+            StatusCode = 429,
+            Message = "Too many requests. Please try again after one minute."
+        }, token);
+    };
+});
+
+
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
     {
