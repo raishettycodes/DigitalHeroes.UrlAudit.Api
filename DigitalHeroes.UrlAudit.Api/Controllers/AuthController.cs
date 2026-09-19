@@ -1,6 +1,7 @@
 ﻿using DigitalHeroes.UrlAudit.Api.DTOs.Auth;
 using DigitalHeroes.UrlAudit.Api.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DigitalHeroes.UrlAudit.Api.Controllers
 {
@@ -16,6 +17,7 @@ namespace DigitalHeroes.UrlAudit.Api.Controllers
         }
 
         [HttpPost("register")]
+        [EnableRateLimiting("FixedPolicy")]
         public async Task<IActionResult> Register(RegisterRequestDto request)
         {
             var result = await _authService.RegisterAsync(request);
@@ -27,6 +29,7 @@ namespace DigitalHeroes.UrlAudit.Api.Controllers
         }
 
         [HttpPost("login")]
+        [EnableRateLimiting("FixedPolicy")]
         public async Task<IActionResult> Login(LoginRequestDto request)
         {
             var result = await _authService.LoginAsync(request);
