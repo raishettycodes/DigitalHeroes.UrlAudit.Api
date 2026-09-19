@@ -39,14 +39,25 @@ try
     {
         options.AddPolicy("AllowAngular", policy =>
         {
-            policy
-                .WithOrigins(
-                    "http://localhost:4200",
-                    "https://localhost:4200",
-                    "https://wonderful-sea-0b0123710.6.azurestaticapps.net"
-                )
-                .AllowAnyHeader()
-                .AllowAnyMethod();
+            if (builder.Environment.IsDevelopment())
+            {
+                policy
+                    .WithOrigins(
+                        "http://localhost:4200",
+                        "https://localhost:4200"
+                    )
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            }
+            else
+            {
+                policy
+                    .WithOrigins(
+                        "https://wonderful-sea-0b0123710.6.azurestaticapps.net"
+                    )
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            }
         });
     });
     builder.Services.AddControllers();
