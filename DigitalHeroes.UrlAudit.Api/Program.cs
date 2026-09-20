@@ -53,7 +53,9 @@ try
             {
                 policy
                     .WithOrigins(
-                        "https://wonderful-sea-0b0123710.6.azurestaticapps.net"
+                        "https://wonderful-sea-0b0123710.6.azurestaticapps.net",
+                        "http://localhost:4200",
+                        "https://localhost:4200"
                     )
                     .AllowAnyHeader()
                     .AllowAnyMethod();
