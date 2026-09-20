@@ -76,7 +76,7 @@ public class RazorpayService
             Encoding.UTF8.GetBytes(signature));
     }
 
-    public Razorpay.Api.Payment FetchPayment(
+    public virtual Razorpay.Api.Payment FetchPayment(
         string paymentId)
     {
         if (string.IsNullOrWhiteSpace(_options.KeyId) ||
