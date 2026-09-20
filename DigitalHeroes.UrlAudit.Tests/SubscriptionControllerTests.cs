@@ -555,4 +555,174 @@ public class SubscriptionControllerTests
         Assert.Equal("Active", subscription.Status);
         Assert.Null(subscription.EndDate);
     }
+
+    [Fact]
+    public async Task GetUsage_WithInvalidUserIdentity_ReturnsUnauthorized()
+    {
+        await using var context = CreateContext();
+
+        var controller = new SubscriptionController(context);
+
+        var identity = new ClaimsIdentity(
+            new[]
+            {
+                new Claim(
+                    ClaimTypes.NameIdentifier,
+                    "invalid-user-id")
+            },
+            "TestAuthentication");
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(identity)
+            }
+        };
+
+        var result = await controller.GetUsage();
+
+        var unauthorizedResult =
+            Assert.IsType<UnauthorizedObjectResult>(result);
+
+        Assert.Equal(
+            StatusCodes.Status401Unauthorized,
+            unauthorizedResult.StatusCode);
+
+        Assert.Empty(
+            await context.Subscriptions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task GetUsage_WhenPaidSubscriptionIsExpired_MarksSubscriptionExpired()
+    {
+        await using var context = CreateContext();
+
+        context.Subscriptions.Add(new Subscription
+        {
+            UserId = 1,
+            Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Starter,
+            MonthlyPrice = 199,
+            MonthlyAuditLimit = 500,
+            StartDate = DateTime.UtcNow.AddMonths(-1),
+            EndDate = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            Status = "Active"
+        });
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context, 1);
+
+        var result = await controller.GetUsage();
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var usage = Assert.IsType<SubscriptionDto>(okResult.Value);
+
+        Assert.Equal(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Starter,
+            usage.Plan);
+
+        Assert.False(usage.IsActive);
+        Assert.Equal("Expired", usage.Status);
+
+        var subscription = await context.Subscriptions
+            .SingleAsync(x => x.UserId == 1);
+
+        Assert.False(subscription.IsActive);
+        Assert.Equal("Expired", subscription.Status);
+    }
+
+    [Fact]
+    public async Task Upgrade_WithInvalidUserIdentity_ReturnsUnauthorized()
+    {
+        await using var context = CreateContext();
+
+        var controller = new SubscriptionController(context);
+
+        var identity = new ClaimsIdentity(
+            new[]
+            {
+                new Claim(
+                    ClaimTypes.NameIdentifier,
+                    "invalid-user-id")
+            },
+            "TestAuthentication");
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(identity)
+            }
+        };
+
+        var result = await controller.Upgrade(
+            new UpgradeSubscriptionRequest
+            {
+                Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free
+            });
+
+        var unauthorizedResult =
+            Assert.IsType<UnauthorizedObjectResult>(result);
+
+        Assert.Equal(
+            StatusCodes.Status401Unauthorized,
+            unauthorizedResult.StatusCode);
+
+        Assert.Empty(
+            await context.Subscriptions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Upgrade_WithEmptyPlan_ReturnsBadRequest()
+    {
+        await using var context = CreateContext();
+        var controller = CreateController(context, 1);
+
+        var result = await controller.Upgrade(
+            new UpgradeSubscriptionRequest
+            {
+                Plan = "   "
+            });
+
+        var badRequestResult =
+            Assert.IsType<BadRequestObjectResult>(result);
+
+        Assert.Equal(
+            StatusCodes.Status400BadRequest,
+            badRequestResult.StatusCode);
+
+        Assert.Empty(
+            await context.Subscriptions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Upgrade_WithWhitespaceAroundFreePlan_ActivatesFreePlan()
+    {
+        await using var context = CreateContext();
+        var controller = CreateController(context, 1);
+
+        var result = await controller.Upgrade(
+            new UpgradeSubscriptionRequest
+            {
+                Plan = "  Free  "
+            });
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+
+        Assert.NotNull(okResult.Value);
+
+        var subscription = await context.Subscriptions
+            .SingleAsync(x => x.UserId == 1);
+
+        Assert.Equal(
+            DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free,
+            subscription.Plan);
+
+        Assert.Equal(0, subscription.MonthlyPrice);
+        Assert.Equal(100, subscription.MonthlyAuditLimit);
+        Assert.True(subscription.IsActive);
+        Assert.Equal("Active", subscription.Status);
+    }
 }
