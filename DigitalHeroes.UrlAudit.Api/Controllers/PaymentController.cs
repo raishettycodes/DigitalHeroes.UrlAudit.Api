@@ -150,9 +150,23 @@ public class PaymentController : ControllerBase
 
         if (payment.Status == "Paid")
         {
+            if (string.Equals(
+                    payment.PaymentId,
+                    request.RazorpayPaymentId,
+                    StringComparison.Ordinal))
+            {
+                return Ok(new
+                {
+                    success = true,
+                    message = "Payment has already been verified.",
+                    plan = payment.Plan,
+                    paymentId = payment.PaymentId
+                });
+            }
+
             return Conflict(new
             {
-                message = "Payment has already been verified."
+                message = "Payment order has already been verified with a different payment."
             });
         }
 
