@@ -17,6 +17,9 @@ public class UrlAuditDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
 
+    public DbSet<PasswordResetToken> PasswordResetTokens =>
+    Set<PasswordResetToken>();
+
 
     // =========================================================
     // WEBSITES
@@ -146,5 +149,24 @@ public class UrlAuditDbContext : DbContext
         modelBuilder.Entity<PaymentWebhookEvent>()
              .HasIndex(e => e.EventId)
              .IsUnique();
+
+        // -----------------------------------------------------
+        // PASSWORD RESET TOKENS
+        // -----------------------------------------------------
+
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasOne(t => t.User)
+            .WithMany()
+            .HasForeignKey(t => t.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasIndex(t => t.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<PasswordResetToken>()
+            .Property(t => t.TokenHash)
+            .HasMaxLength(128);
+
     }
 }

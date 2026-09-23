@@ -6,11 +6,23 @@ using DigitalHeroes.UrlAudit.Api.Models;
 using DigitalHeroes.UrlAudit.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using DigitalHeroes.UrlAudit.Api.Interfaces;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace DigitalHeroes.UrlAudit.Tests;
 
 public class AuthServiceTests
 {
+    private sealed class FakeEmailService : IEmailService
+    {
+        public Task SendPasswordResetEmailAsync(
+            string recipientEmail,
+            string resetLink)
+        {
+            return Task.CompletedTask;
+        }
+    }
     private static (UrlAuditDbContext Context, AuthService Service) CreateService()
     {
         var options = new DbContextOptionsBuilder<UrlAuditDbContext>()
@@ -28,7 +40,21 @@ public class AuthServiceTests
 
         var jwtGenerator = new JwtTokenGenerator(jwtSettings);
 
-        var service = new AuthService(context, jwtGenerator);
+        var configuration = new ConfigurationBuilder()
+      .AddInMemoryCollection(new Dictionary<string, string?>
+      {
+          ["PasswordReset:FrontendBaseUrl"] = "http://localhost:4200"
+      })
+      .Build();
+
+        var logger = new LoggerFactory().CreateLogger<AuthService>();
+
+        var service = new AuthService(
+    context,
+    jwtGenerator,
+    new FakeEmailService(),
+    configuration,
+    logger);
 
         return (context, service);
     }

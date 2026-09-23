@@ -7,5 +7,11 @@ namespace DigitalHeroes.UrlAudit.Api.Interfaces
         Task<bool> RegisterAsync(RegisterRequestDto request);
 
         Task<LoginResponseDto?> LoginAsync(LoginRequestDto request);
+
+        Task<string?> CreatePasswordResetTokenAsync(
+            ForgotPasswordRequestDto request);
+
+        Task<bool> ResetPasswordAsync(
+            ResetPasswordRequestDto request);
     }
 }

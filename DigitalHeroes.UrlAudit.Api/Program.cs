@@ -12,6 +12,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using DigitalHeroes.UrlAudit.Api.Helpers;
 using DigitalHeroes.UrlAudit.Api.Models;
+using ResendSdk = Resend;
+
 
 
 
@@ -154,6 +156,16 @@ try
     builder.Services.AddScoped<SeoAuditService>();
     builder.Services.AddScoped<IAuditHistoryService, AuditHistoryService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
+    Resend.ResendDiExtensions.AddResend(
+    builder.Services,
+    options =>
+    {
+        options.ApiToken =
+            builder.Configuration["Resend:ApiKey"]
+            ?? throw new InvalidOperationException(
+                "Resend:ApiKey is not configured.");
+    });
+    builder.Services.AddScoped<IEmailService, ResendEmailService>();
     builder.Services.AddScoped<IWebsiteService, WebsiteService>();
     builder.Services.AddScoped<JwtTokenGenerator>();
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -227,6 +239,7 @@ try
     app.MapHealthChecks("/health");
     Console.WriteLine("===== BEFORE RUN =====");
     app.Run();
+    Console.WriteLine("===== AFTER RUN =====");
 }
 catch (Exception ex)
 {
