@@ -67,16 +67,59 @@ try
     builder.Services.AddControllers();
     builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("Jwt"));
-    builder.Services.AddDbContext<UrlAuditDbContext>(options =>
-    options.UseSqlServer(
-    builder.Configuration.GetConnectionString("DefaultConnection"),
-    sqlServerOptions =>
+    var databaseProvider =
+    builder.Configuration["DatabaseProvider"] ?? "SqlServer";
+
+    if (databaseProvider.Equals(
+            "PostgreSQL",
+            StringComparison.OrdinalIgnoreCase))
     {
-        sqlServerOptions.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(10),
-            errorNumbersToAdd: null);
-    }));
+        var connectionString =
+            builder.Configuration.GetConnectionString("PostgreSqlConnection");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "PostgreSqlConnection is not configured.");
+        }
+
+       builder.Services.AddDbContext<PostgreSqlUrlAuditDbContext>(options =>
+    options.UseNpgsql(
+        connectionString,
+        npgsqlOptions =>
+        {
+            npgsqlOptions.MigrationsHistoryTable(
+                "__EFMigrationsHistory_PostgreSQL");
+
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(10),
+                errorCodesToAdd: null);
+        }));
+
+builder.Services.AddScoped<UrlAuditDbContext>(serviceProvider =>
+    serviceProvider.GetRequiredService<PostgreSqlUrlAuditDbContext>());
+    }
+    else if (databaseProvider.Equals(
+                 "SqlServer",
+                 StringComparison.OrdinalIgnoreCase))
+    {
+        builder.Services.AddDbContext<UrlAuditDbContext>(options =>
+            options.UseSqlServer(
+                builder.Configuration.GetConnectionString("DefaultConnection"),
+                sqlServerOptions =>
+                {
+                    sqlServerOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorNumbersToAdd: null);
+                }));
+    }
+    else
+    {
+        throw new InvalidOperationException(
+            $"Unsupported database provider: {databaseProvider}");
+    }
     builder.Services.Configure<AuditSettings>(
     builder.Configuration.GetSection("AuditSettings"));
     builder.Services.AddHealthChecks();
@@ -212,11 +255,8 @@ try
 
     // Configure the HTTP request pipeline.
 
-    if (app.Environment.IsDevelopment())
-    {
-        app.UseSwagger();
-        app.UseSwaggerUI();
-    }
+   app.UseSwagger();
+   app.UseSwaggerUI();
     app.MapGet("/", () => "DigitalHeroes URL Audit API is running successfully.");
 
 
