@@ -56,6 +56,7 @@ try
                 policy
                     .WithOrigins(
                         "https://wonderful-sea-0b0123710.6.azurestaticapps.net",
+                        "https://digitalheroes-url-audit-ui.onrender.com",
                         "http://localhost:4200",
                         "https://localhost:4200"
                     )
