@@ -119,6 +119,7 @@ public class SubscriptionController : ControllerBase
             join website in _context.Websites
                 on audit.WebsiteId equals website.Id
             where website.UserId == userId &&
+                  audit.IsReachable &&
                   audit.CreatedAt >= monthStart &&
                   audit.CreatedAt < nextMonth
             select audit
@@ -281,6 +282,7 @@ public class SubscriptionController : ControllerBase
             join website in _context.Websites
                 on audit.WebsiteId equals website.Id
             where website.UserId == userId &&
+                  audit.IsReachable &&
                   audit.CreatedAt >= monthStart &&
                   audit.CreatedAt < nextMonth
             select audit
