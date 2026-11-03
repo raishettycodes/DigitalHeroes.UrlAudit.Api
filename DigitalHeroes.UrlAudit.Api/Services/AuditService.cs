@@ -66,6 +66,7 @@ public class AuditService
                 on audit.WebsiteId equals website.Id
 
             where website.UserId == userId &&
+                  audit.IsReachable &&
                   audit.CreatedAt >= monthStart &&
                   audit.CreatedAt < nextMonthStart
 
