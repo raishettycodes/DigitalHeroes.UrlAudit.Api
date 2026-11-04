@@ -211,7 +211,17 @@ public class SubscriptionControllerTests
                 IsReachable = true,
                 Message = "OK",
                 CreatedAt = auditDate
-            });
+            },
+             new AuditHistory
+             {
+                 WebsiteId = website.Id,
+                 Url = website.Url,
+                 StatusCode = 500,
+                 ResponseTimeMs = 200,
+                 IsReachable = false,
+                 Message = "Server error",
+                 CreatedAt = auditDate
+             });
 
         await context.SaveChangesAsync();
 
@@ -461,6 +471,80 @@ public class SubscriptionControllerTests
         Assert.True(subscription.IsActive);
         Assert.Equal("Active", subscription.Status);
         Assert.Null(subscription.EndDate);
+    }
+
+    [Fact]
+    public async Task Upgrade_ToFreePlan_ExcludesUnreachableAuditsFromUsage()
+    {
+        await using var context = CreateContext();
+
+        var website = new Website
+        {
+            Name = "Test Website",
+            Url = "https://example.com",
+            UserId = 1,
+            IsActive = true
+        };
+
+        context.Websites.Add(website);
+        await context.SaveChangesAsync();
+
+        var auditDate = DateTime.UtcNow;
+
+        context.AuditHistories.AddRange(new AuditHistory
+        {
+            WebsiteId = website.Id,
+            Url = website.Url,
+            StatusCode = 200,
+            ResponseTimeMs = 100,
+            IsReachable = true,
+            Message = "OK",
+            CreatedAt = auditDate
+        },
+            new AuditHistory
+            {
+                WebsiteId = website.Id,
+                Url = website.Url,
+                StatusCode = 200,
+                ResponseTimeMs = 150,
+                IsReachable = true,
+                Message = "OK",
+                CreatedAt = auditDate
+            },
+            new AuditHistory
+            {
+                WebsiteId = website.Id,
+                Url = website.Url,
+                StatusCode = 500,
+                ResponseTimeMs = 200,
+                IsReachable = false,
+                Message = "Server error",
+                CreatedAt = auditDate
+            });
+
+
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context, 1);
+
+        var result = await controller.Upgrade(
+            new UpgradeSubscriptionRequest
+            {
+                Plan = DigitalHeroes.UrlAudit.Api.Configuration.PlanDefinitions.Free
+            });
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(okResult.Value);
+
+        var response = System.Text.Json.JsonSerializer.Serialize(okResult.Value);
+
+        using var document = System.Text.Json.JsonDocument.Parse(response);
+
+        var root = document.RootElement;
+
+        Assert.Equal(2, root.GetProperty("auditsUsed").GetInt32());
+        Assert.Equal(98, root.GetProperty("remainingAudits").GetInt32());
+        Assert.Equal(2, root.GetProperty("usagePercentage").GetDouble());
     }
 
     [Fact]
