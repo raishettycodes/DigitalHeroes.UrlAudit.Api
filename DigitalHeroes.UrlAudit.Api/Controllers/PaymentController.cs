@@ -451,57 +451,61 @@ public class PaymentController : ControllerBase
                 "payment.captured",
                 StringComparison.OrdinalIgnoreCase))
         {
-            await using var nonPaymentTransaction =
-                await _context.Database.BeginTransactionAsync(
-                    System.Data.IsolationLevel.Serializable);
+            var nonPaymentStrategy =
+                _context.Database.CreateExecutionStrategy();
 
-            try
+            await nonPaymentStrategy.ExecuteAsync(async () =>
             {
-                var nonPaymentEvent =
-                    await _context.PaymentWebhookEvents
-                        .FirstOrDefaultAsync(e =>
-                            e.EventId == eventId);
+                await using var nonPaymentTransaction =
+                    await _context.Database.BeginTransactionAsync(
+                        System.Data.IsolationLevel.Serializable);
 
-                if (nonPaymentEvent == null)
+                try
                 {
-                    nonPaymentEvent = new PaymentWebhookEvent
+                    var nonPaymentEvent =
+                        await _context.PaymentWebhookEvents
+                            .FirstOrDefaultAsync(e =>
+                                e.EventId == eventId);
+
+                    if (nonPaymentEvent == null)
                     {
-                        EventId = eventId,
-                        EventType = eventType,
-                        ReceivedAt = DateTime.UtcNow,
-                        Processed = true
-                    };
+                        nonPaymentEvent = new PaymentWebhookEvent
+                        {
+                            EventId = eventId,
+                            EventType = eventType,
+                            ReceivedAt = DateTime.UtcNow,
+                            Processed = true
+                        };
 
-                    _context.PaymentWebhookEvents.Add(
-                        nonPaymentEvent);
+                        _context.PaymentWebhookEvents.Add(
+                            nonPaymentEvent);
+                    }
+                    else if (!nonPaymentEvent.Processed)
+                    {
+                        nonPaymentEvent.Processed = true;
+                    }
 
                     await _context.SaveChangesAsync();
+
+                    await nonPaymentTransaction.CommitAsync();
                 }
-                else if (!nonPaymentEvent.Processed)
+                catch (Exception ex)
                 {
-                    nonPaymentEvent.Processed = true;
+                    _logger.LogError(
+                        ex,
+                        "Razorpay non-payment webhook failed. EventId={EventId}",
+                        eventId);
 
-                    await _context.SaveChangesAsync();
+                    await nonPaymentTransaction.RollbackAsync();
+                    throw;
                 }
+            });
 
-                await nonPaymentTransaction.CommitAsync();
-
-                return Ok(new
-                {
-                    success = true,
-                    message = "Webhook received."
-                });
-            }
-            catch (Exception ex)
+            return Ok(new
             {
-                _logger.LogError(
-                    ex,
-                    "Razorpay non-payment webhook failed. EventId={EventId}",
-                    eventId);
-
-                await nonPaymentTransaction.RollbackAsync();
-                throw;
-            }
+                success = true,
+                message = "Webhook received."
+            });
         }
 
         // 5. Extract Razorpay payment details.
