@@ -393,7 +393,11 @@ public class PaymentController : ControllerBase
                 message = "Missing Razorpay webhook headers."
             });
         }
-
+        _logger.LogInformation(
+     "Razorpay webhook diagnostic: SecretConfigured={SecretConfigured}, SignaturePresent={SignaturePresent}, PayloadLength={PayloadLength}",
+     !string.IsNullOrWhiteSpace(_razorpayOptions.WebhookSecret),
+     !string.IsNullOrWhiteSpace(signature),
+     payload.Length);
         // 1. Verify Razorpay webhook signature.
         if (!_razorpayService.VerifyWebhookSignature(
                 payload,
